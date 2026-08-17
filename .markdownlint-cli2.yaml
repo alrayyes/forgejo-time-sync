@@ -4,6 +4,7 @@ globs:
 ignores:
   - "**/node_modules/**"
   - "**/.bun-cache/**"
+  - "CHANGELOG.md" # written by the release job, not by hand
 
 config:
   # markdownlint/style/prettier drops MD013 because Prettier reflows prose on

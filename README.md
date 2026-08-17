@@ -9,8 +9,7 @@ in Toggl Track into it. Packaged as a container you start once and leave
 running — it polls on its own timer, there's nothing to re-invoke.
 
 Forgejo has no webhook event for time tracking, so this has to poll rather
-than react. Built for
-[migrate-from-gitlab-to-forgejo#46](https://git.higherlearning.eu/alrayyes/migrate-from-gitlab-to-forgejo/issues/46).
+than react.
 
 ## How it works
 
