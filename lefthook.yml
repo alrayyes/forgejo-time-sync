@@ -1,0 +1,57 @@
+# The same commands CI runs, so the two cannot drift. The hook catches it
+# early; CI is the gate that cannot be skipped.
+
+pre-commit:
+  jobs:
+    - name: golangci-lint fmt
+      glob: "*.go"
+      run: golangci-lint fmt {staged_files}
+      stage_fixed: true
+
+    - name: golangci-lint run
+      glob: "*.go"
+      run: golangci-lint run ./...
+
+    # A built-in `go` subcommand, not a third-party tool: gofmt/gofumpt never
+    # touch go.mod, and `go mod tidy` does network resolution a
+    # formatting-only hook shouldn't be doing.
+    - name: go.mod
+      glob: "go.mod"
+      run: go mod edit -fmt go.mod
+      stage_fixed: true
+
+    - name: prettier
+      glob: "*.{md,yml,yaml}"
+      run: bunx prettier --write {staged_files}
+      stage_fixed: true
+
+    - name: markdownlint
+      glob: "*.md"
+      run: bunx markdownlint-cli2 {staged_files}
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: bunx commitlint --edit {1}
+
+# pre-push never writes. A hook rewriting files under a push leaves the
+# pushed commit and the working tree disagreeing about what was reviewed.
+pre-push:
+  parallel: true
+  jobs:
+    - name: test
+      run: go test -race ./...
+
+    # Docker-backed, so kept separate from the fast unit suite above — a
+    # push is the point this is worth paying for, not every commit.
+    - name: test-e2e
+      run: go test -tags e2e ./e2e/...
+
+    - name: go.mod
+      run: go mod edit -fmt go.mod && git diff --exit-code go.mod
+
+    - name: prettier
+      run: bun run format:check
+
+    - name: markdownlint
+      run: bun run lint:md
