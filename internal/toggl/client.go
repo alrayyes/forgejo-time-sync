@@ -70,31 +70,48 @@ func NewClientWithPacer(apiToken string, pacer waiter) *Client {
 	}
 }
 
-// CreateTimeEntry creates a single, already-completed time entry — start
-// and duration are both explicit, so this can never register as (or
+// NewTimeEntry describes a time entry to create. Start and Duration are
+// both required and explicit, so a created entry can never register as (or
 // disturb) a running timer.
-func (c *Client) CreateTimeEntry(ctx context.Context, workspaceID, projectID int64, start time.Time, duration time.Duration, description string) (Entry, error) {
+type NewTimeEntry struct {
+	WorkspaceID int64
+	ProjectID   int64
+	Start       time.Time
+	Duration    time.Duration
+	Description string
+	// Tags attaches structured metadata beyond the free-text Description —
+	// e.g. an issue reference — so it's queryable/filterable in Toggl
+	// rather than only readable. Toggl creates any tag that doesn't
+	// already exist in the workspace.
+	Tags []string
+}
+
+// CreateTimeEntry creates a single, already-completed time entry.
+func (c *Client) CreateTimeEntry(ctx context.Context, e NewTimeEntry) (Entry, error) {
 	body := map[string]any{
-		"workspace_id": workspaceID,
-		"project_id":   projectID,
-		"start":        start.UTC().Format(time.RFC3339),
-		"duration":     int64(duration.Seconds()),
-		"description":  description,
+		"workspace_id": e.WorkspaceID,
+		"project_id":   e.ProjectID,
+		"start":        e.Start.UTC().Format(time.RFC3339),
+		"duration":     int64(e.Duration.Seconds()),
+		"description":  e.Description,
 		"created_with": "forgejo-time-sync",
 	}
+	if len(e.Tags) > 0 {
+		body["tags"] = e.Tags
+	}
 
-	path := fmt.Sprintf("/api/v9/workspaces/%d/time_entries", workspaceID)
+	path := fmt.Sprintf("/api/v9/workspaces/%d/time_entries", e.WorkspaceID)
 	resp, err := c.postJSON(ctx, path, body)
 	if err != nil {
 		return Entry{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	var e Entry
-	if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+	var created Entry
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		return Entry{}, fmt.Errorf("toggl: decoding create-time-entry response: %w", err)
 	}
-	return e, nil
+	return created, nil
 }
 
 // ListRecentEntries returns the authenticated user's time entries since the

@@ -48,7 +48,14 @@ func TestCreateTimeEntry(t *testing.T) {
 	})
 
 	start := time.Date(2026, 8, 17, 9, 0, 0, 0, time.UTC)
-	entry, err := c.CreateTimeEntry(t.Context(), 1, 2, start, 90*time.Minute, "forgejo-time-entry:1 issue:alrayyes/repo#12")
+	entry, err := c.CreateTimeEntry(t.Context(), toggl.NewTimeEntry{
+		WorkspaceID: 1,
+		ProjectID:   2,
+		Start:       start,
+		Duration:    90 * time.Minute,
+		Description: "forgejo-time-entry:1 issue:alrayyes/repo#12",
+		Tags:        []string{"alrayyes/repo#12"},
+	})
 	require.NoError(t, err)
 
 	t.Run("sends a POST", func(t *testing.T) {
@@ -81,6 +88,10 @@ func TestCreateTimeEntry(t *testing.T) {
 		require.Equal(t, "forgejo-time-entry:1 issue:alrayyes/repo#12", gotBody["description"])
 	})
 
+	t.Run("sends the issue reference as a tag, not just in the description", func(t *testing.T) {
+		require.Equal(t, []any{"alrayyes/repo#12"}, gotBody["tags"])
+	})
+
 	t.Run("paces itself before the request", func(t *testing.T) {
 		require.Equal(t, 1, waiter.calls)
 	})
@@ -95,7 +106,7 @@ func TestCreateTimeEntryPropagatesHardErrors(t *testing.T) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 	})
 
-	_, err := c.CreateTimeEntry(t.Context(), 1, 2, time.Now(), time.Minute, "d")
+	_, err := c.CreateTimeEntry(t.Context(), toggl.NewTimeEntry{WorkspaceID: 1, ProjectID: 2, Start: time.Now(), Duration: time.Minute, Description: "d"})
 
 	require.Error(t, err)
 }
@@ -113,7 +124,7 @@ func TestCreateTimeEntryRetriesOn402ThenSucceeds(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id": 1}`))
 	})
 
-	entry, err := c.CreateTimeEntry(t.Context(), 1, 2, time.Now(), time.Minute, "d")
+	entry, err := c.CreateTimeEntry(t.Context(), toggl.NewTimeEntry{WorkspaceID: 1, ProjectID: 2, Start: time.Now(), Duration: time.Minute, Description: "d"})
 	require.NoError(t, err)
 
 	t.Run("eventually returns the entry created on the successful attempt", func(t *testing.T) {
@@ -134,7 +145,7 @@ func TestCreateTimeEntryGivesUpAfterRepeated402(t *testing.T) {
 		w.WriteHeader(http.StatusPaymentRequired)
 	})
 
-	_, err := c.CreateTimeEntry(t.Context(), 1, 2, time.Now(), time.Minute, "d")
+	_, err := c.CreateTimeEntry(t.Context(), toggl.NewTimeEntry{WorkspaceID: 1, ProjectID: 2, Start: time.Now(), Duration: time.Minute, Description: "d"})
 
 	require.Error(t, err)
 }
