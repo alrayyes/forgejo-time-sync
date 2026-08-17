@@ -26,29 +26,29 @@ const (
 	togglProjectID   = 200
 )
 
-func newSyncFixture(t *testing.T, ctx context.Context) (fg forgejo.Client, tg *toggl.Client, proxy *recordingProxy, st *state.State) {
+func newSyncFixture(t *testing.T, ctx context.Context) (fg *forgejo.Client, fgFixture forgejoFixture, tg *toggl.Client, proxy *recordingProxy, st *state.State) {
 	t.Helper()
 
-	fgFixture := startForgejo(t, ctx)
-	fg = forgejo.Client{BaseURL: fgFixture.baseURL, Token: fgFixture.token}
+	fgFixture = startForgejo(t, ctx)
+	var err error
+	fg, err = forgejo.NewClient(fgFixture.baseURL, fgFixture.token)
+	require.NoError(t, err)
 
 	prismURL := startPrismMock(t, ctx)
 	proxy = newRecordingProxy(t, prismURL)
 	tg = toggl.NewClient("test-token", 3600)
 	tg.BaseURL = proxy.URL()
 
-	var err error
 	st, err = state.Load(filepath.Join(t.TempDir(), "state.json"))
 	require.NoError(t, err)
 
-	return fg, tg, proxy, st
+	return fg, fgFixture, tg, proxy, st
 }
 
 func TestSyncPushesForgejoTimeIntoToggl(t *testing.T) {
 	ctx := t.Context()
-	fg, tg, proxy, st := newSyncFixture(t, ctx)
+	fg, fgFixture, tg, proxy, st := newSyncFixture(t, ctx)
 
-	fgFixture := forgejoFixture{baseURL: fg.BaseURL, token: fg.Token}
 	fgFixture.createRepoWithTrackedTime(t, "e2e-repo", 5400)
 
 	created, err := sync.RepoTimes(ctx, fg, tg, st, forgejoAdmin, "e2e-repo", togglWorkspaceID, togglProjectID)
@@ -78,9 +78,8 @@ func TestSyncPushesForgejoTimeIntoToggl(t *testing.T) {
 
 func TestSyncIsIdempotentOnRerun(t *testing.T) {
 	ctx := t.Context()
-	fg, tg, proxy, st := newSyncFixture(t, ctx)
+	fg, fgFixture, tg, proxy, st := newSyncFixture(t, ctx)
 
-	fgFixture := forgejoFixture{baseURL: fg.BaseURL, token: fg.Token}
 	fgFixture.createRepoWithTrackedTime(t, "e2e-repo", 3600)
 
 	_, err := sync.RepoTimes(ctx, fg, tg, st, forgejoAdmin, "e2e-repo", togglWorkspaceID, togglProjectID)
@@ -100,7 +99,7 @@ func TestSyncIsIdempotentOnRerun(t *testing.T) {
 
 func TestSyncAutoProvisionsTogglProjectWhenNoneConfigured(t *testing.T) {
 	ctx := t.Context()
-	_, tg, proxy, st := newSyncFixture(t, ctx)
+	_, _, tg, proxy, st := newSyncFixture(t, ctx)
 
 	projectID, err := sync.ResolveProject(ctx, tg, st, "alrayyes", "e2e-repo", togglWorkspaceID, 0)
 	require.NoError(t, err)

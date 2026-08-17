@@ -84,7 +84,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 
-	fg := forgejo.Client{BaseURL: cfg.ForgejoBaseURL, Token: cfg.ForgejoToken}
+	fg, err := forgejo.NewClient(cfg.ForgejoBaseURL, cfg.ForgejoToken)
+	if err != nil {
+		return err
+	}
 	tg := toggl.NewClient(cfg.TogglAPIToken, cfg.TogglMaxRequestsPerHour)
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
@@ -142,7 +145,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 }
 
-func poll(ctx context.Context, logger *slog.Logger, fg forgejo.Client, tg *toggl.Client, st *state.State, cfg config.Config, projectID int64) {
+func poll(ctx context.Context, logger *slog.Logger, fg *forgejo.Client, tg *toggl.Client, st *state.State, cfg config.Config, projectID int64) {
 	created, err := sync.RepoTimes(ctx, fg, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, projectID)
 	if err != nil {
 		logger.Error("sync pass failed, retrying next poll", "error", err)
