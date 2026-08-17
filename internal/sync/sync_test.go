@@ -30,6 +30,33 @@ type fakeToggl struct {
 
 	recent    []toggl.Entry
 	recentErr error
+
+	clientID        int64
+	projectID       int64
+	findOrCreateErr error
+	clientCalls     []string
+	projectCalls    []findOrCreateProjectCall
+}
+
+type findOrCreateProjectCall struct {
+	clientID int64
+	name     string
+}
+
+func (f *fakeToggl) FindOrCreateClient(_ context.Context, _ int64, name string) (int64, error) {
+	f.clientCalls = append(f.clientCalls, name)
+	if f.findOrCreateErr != nil {
+		return 0, f.findOrCreateErr
+	}
+	return f.clientID, nil
+}
+
+func (f *fakeToggl) FindOrCreateProject(_ context.Context, _, clientID int64, name string) (int64, error) {
+	f.projectCalls = append(f.projectCalls, findOrCreateProjectCall{clientID: clientID, name: name})
+	if f.findOrCreateErr != nil {
+		return 0, f.findOrCreateErr
+	}
+	return f.projectID, nil
 }
 
 func (f *fakeToggl) CreateTimeEntry(_ context.Context, e toggl.NewTimeEntry) (toggl.Entry, error) {
@@ -170,4 +197,73 @@ func TestReconcileIsANoOpWhenStateIsAlreadyPopulated(t *testing.T) {
 	require.NoError(t, err)
 
 	require.False(t, st.Has(5), "reconcile should only ever seed an empty state, never merge into an existing one")
+}
+
+func TestResolveProjectPrefersAnExplicitID(t *testing.T) {
+	tg := &fakeToggl{clientID: 7, projectID: 21}
+	st := newState(t)
+
+	id, err := sync.ResolveProject(t.Context(), tg, st, "alrayyes", "repo", 1, 99)
+	require.NoError(t, err)
+
+	t.Run("returns the explicit id unchanged", func(t *testing.T) {
+		require.Equal(t, int64(99), id)
+	})
+
+	t.Run("never touches toggl at all", func(t *testing.T) {
+		require.Empty(t, tg.clientCalls)
+		require.Empty(t, tg.projectCalls)
+	})
+}
+
+func TestResolveProjectAutoProvisionsWhenNoIDIsGiven(t *testing.T) {
+	tg := &fakeToggl{clientID: 7, projectID: 21}
+	st := newState(t)
+
+	id, err := sync.ResolveProject(t.Context(), tg, st, "alrayyes", "repo", 1, 0)
+	require.NoError(t, err)
+
+	t.Run("returns the auto-provisioned project id", func(t *testing.T) {
+		require.Equal(t, int64(21), id)
+	})
+
+	t.Run("creates the client named after the repo owner", func(t *testing.T) {
+		require.Equal(t, []string{"alrayyes"}, tg.clientCalls)
+	})
+
+	t.Run("creates the project named after the repo, under that client", func(t *testing.T) {
+		require.Equal(t, []findOrCreateProjectCall{{clientID: 7, name: "repo"}}, tg.projectCalls)
+	})
+
+	t.Run("caches the resolved id in state", func(t *testing.T) {
+		require.Equal(t, int64(21), st.ProjectID())
+	})
+}
+
+func TestResolveProjectReusesTheCachedIDWithoutTouchingToggl(t *testing.T) {
+	tg := &fakeToggl{clientID: 7, projectID: 21}
+	st := newState(t)
+	require.NoError(t, st.SetProjectID(555))
+
+	id, err := sync.ResolveProject(t.Context(), tg, st, "alrayyes", "repo", 1, 0)
+	require.NoError(t, err)
+
+	t.Run("returns the cached id, not a freshly resolved one", func(t *testing.T) {
+		require.Equal(t, int64(555), id)
+	})
+
+	t.Run("never re-looks-up by name, so a rename in Toggl's UI is left alone", func(t *testing.T) {
+		require.Empty(t, tg.clientCalls)
+		require.Empty(t, tg.projectCalls)
+	})
+}
+
+func TestResolveProjectPropagatesErrors(t *testing.T) {
+	tg := &fakeToggl{findOrCreateErr: errors.New("boom")}
+	st := newState(t)
+
+	_, err := sync.ResolveProject(t.Context(), tg, st, "alrayyes", "repo", 1, 0)
+	require.Error(t, err)
+
+	require.Zero(t, st.ProjectID(), "a failed resolution should not cache a zero/partial id")
 }

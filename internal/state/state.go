@@ -1,5 +1,8 @@
 // Package state tracks which Forgejo time entries have already been pushed
-// to Toggl, so a poll can skip Toggl entirely when there's nothing new.
+// to Toggl, so a poll can skip Toggl entirely when there's nothing new. It
+// also caches the Toggl project a repo resolved to, once auto-provisioned,
+// so a later rename in Toggl's UI never triggers a re-lookup or a
+// duplicate.
 package state
 
 import (
@@ -9,12 +12,19 @@ import (
 	"sync"
 )
 
-// State is the set of Forgejo time-entry IDs already synced to Toggl,
-// backed by a JSON file on disk.
+// State is a Forgejo repo's sync state, backed by a JSON file on disk.
 type State struct {
 	path string
 	mu   sync.Mutex
 	ids  map[int64]struct{}
+
+	projectID int64
+}
+
+// fileFormat is the on-disk shape of the state file.
+type fileFormat struct {
+	IDs       []int64 `json:"ids"`
+	ProjectID int64   `json:"project_id,omitempty"`
 }
 
 // Load reads the state file at path, or starts empty if it doesn't exist
@@ -30,13 +40,14 @@ func Load(path string) (*State, error) {
 		return nil, err
 	}
 
-	var ids []int64
-	if err := json.Unmarshal(data, &ids); err != nil {
+	var f fileFormat
+	if err := json.Unmarshal(data, &f); err != nil {
 		return nil, err
 	}
-	for _, id := range ids {
+	for _, id := range f.IDs {
 		s.ids[id] = struct{}{}
 	}
+	s.projectID = f.ProjectID
 	return s, nil
 }
 
@@ -65,13 +76,33 @@ func (s *State) Add(id int64) error {
 	return s.saveLocked()
 }
 
+// ProjectID returns the cached Toggl project ID this repo resolved to, or 0
+// if none has been resolved yet.
+func (s *State) ProjectID() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.projectID
+}
+
+// SetProjectID caches the Toggl project ID this repo resolved to and
+// persists it. Once set, it's used as-is — never re-derived by name — so a
+// project renamed later in Toggl's UI is left alone rather than fought or
+// duplicated.
+func (s *State) SetProjectID(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.projectID = id
+	return s.saveLocked()
+}
+
 func (s *State) saveLocked() error {
-	ids := make([]int64, 0, len(s.ids))
+	f := fileFormat{IDs: make([]int64, 0, len(s.ids)), ProjectID: s.projectID}
 	for id := range s.ids {
-		ids = append(ids, id)
+		f.IDs = append(f.IDs, id)
 	}
 
-	data, err := json.Marshal(ids)
+	data, err := json.Marshal(f)
 	if err != nil {
 		return err
 	}

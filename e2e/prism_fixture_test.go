@@ -33,7 +33,13 @@ func startPrismMock(t *testing.T, ctx context.Context) string {
 	req := testcontainers.ContainerRequest{
 		Image:        prismImage,
 		ExposedPorts: []string{"4010/tcp"},
-		Cmd:          []string{"mock", "-h", "0.0.0.0", "/data/spec.json"},
+		// -d (dynamic) generates fake response data from the schema
+		// itself rather than a static all-zeros/all-"string" default —
+		// needed so a created resource's id looks like a real Toggl id
+		// (a positive integer) rather than always 0, which the state
+		// cache would read as "nothing resolved yet". --seed keeps it
+		// deterministic across runs.
+		Cmd: []string{"mock", "-h", "0.0.0.0", "-d", "--seed", "1", "/data/spec.json"},
 		Files: []testcontainers.ContainerFile{
 			{HostFilePath: specPath, ContainerFilePath: "/data/spec.json", FileMode: 0o644},
 		},

@@ -1,9 +1,9 @@
 // Package toggl is a minimal, deliberately narrow client for Toggl Track's
-// API v9. It can create completed time entries and list recent ones — that
-// is the entire surface. There is no method that could start, stop, or
-// modify an existing entry, which is what guarantees a manually started
-// running timer is never touched by this tool: there's no code path that
-// reaches it.
+// API v9. There is no method that could start, stop, or modify an existing
+// time entry, which is what guarantees a manually started running timer is
+// never touched by this tool: there's no code path that reaches it. Client
+// and project creation are the one other thing it can do, for auto-
+// provisioning — neither comes near a time entry.
 package toggl
 
 import (
@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/alrayyes/forgejo-time-sync/internal/ratelimit"
@@ -110,6 +111,101 @@ func (c *Client) CreateTimeEntry(ctx context.Context, e NewTimeEntry) (Entry, er
 	var created Entry
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		return Entry{}, fmt.Errorf("toggl: decoding create-time-entry response: %w", err)
+	}
+	return created, nil
+}
+
+// namedResource is the subset of a Toggl client or project this package
+// cares about: enough to find one by name (and, for a project, by the
+// client it belongs to) without pulling in every field Toggl returns.
+type namedResource struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	ClientID int64  `json:"client_id"`
+}
+
+// FindOrCreateClient returns the ID of the Toggl client named name in
+// workspaceID, creating one if none exists yet.
+func (c *Client) FindOrCreateClient(ctx context.Context, workspaceID int64, name string) (int64, error) {
+	path := fmt.Sprintf("/api/v9/workspaces/%d/clients", workspaceID)
+
+	clients, err := c.listNamedResources(ctx, path)
+	if err != nil {
+		return 0, fmt.Errorf("toggl: listing clients: %w", err)
+	}
+	for _, cl := range clients {
+		if cl.Name == name {
+			return cl.ID, nil
+		}
+	}
+
+	created, err := c.createNamedResource(ctx, path, map[string]any{"name": name})
+	if err != nil {
+		return 0, fmt.Errorf("toggl: creating client %q: %w", name, err)
+	}
+	return created.ID, nil
+}
+
+// FindOrCreateProject returns the ID of the Toggl project named name under
+// clientID in workspaceID, creating one if none exists yet.
+func (c *Client) FindOrCreateProject(ctx context.Context, workspaceID, clientID int64, name string) (int64, error) {
+	// Toggl's list-projects endpoint requires several query parameters
+	// that read like they belong to a search UI, not a plain list — name
+	// and search do double duty here as a server-side filter, which also
+	// means we're not paging through every project in the workspace just
+	// to find one.
+	query := url.Values{
+		"name":           {name},
+		"search":         {name},
+		"page":           {"1"},
+		"sort_field":     {"name"},
+		"sort_order":     {"asc"},
+		"only_templates": {"false"},
+		"sort_pinned":    {"false"},
+	}
+	path := fmt.Sprintf("/api/v9/workspaces/%d/projects", workspaceID)
+
+	projects, err := c.listNamedResources(ctx, path+"?"+query.Encode())
+	if err != nil {
+		return 0, fmt.Errorf("toggl: listing projects: %w", err)
+	}
+	for _, p := range projects {
+		if p.Name == name && p.ClientID == clientID {
+			return p.ID, nil
+		}
+	}
+
+	created, err := c.createNamedResource(ctx, path, map[string]any{"name": name, "client_id": clientID})
+	if err != nil {
+		return 0, fmt.Errorf("toggl: creating project %q: %w", name, err)
+	}
+	return created.ID, nil
+}
+
+func (c *Client) listNamedResources(ctx context.Context, path string) ([]namedResource, error) {
+	resp, err := c.getJSON(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var resources []namedResource
+	if err := json.NewDecoder(resp.Body).Decode(&resources); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+	return resources, nil
+}
+
+func (c *Client) createNamedResource(ctx context.Context, path string, body map[string]any) (namedResource, error) {
+	resp, err := c.postJSON(ctx, path, body)
+	if err != nil {
+		return namedResource{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var created namedResource
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		return namedResource{}, fmt.Errorf("decoding response: %w", err)
 	}
 	return created, nil
 }

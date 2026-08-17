@@ -29,6 +29,44 @@ type TogglRecentEntries interface {
 	ListRecentEntries(ctx context.Context, since time.Time) ([]toggl.Entry, error)
 }
 
+// TogglProjects is the one Toggl capability ResolveProject needs.
+type TogglProjects interface {
+	FindOrCreateClient(ctx context.Context, workspaceID int64, name string) (int64, error)
+	FindOrCreateProject(ctx context.Context, workspaceID, clientID int64, name string) (int64, error)
+}
+
+// ResolveProject returns the Toggl project ID to sync owner/repo's time
+// entries into, in priority order: an explicit projectID if one was
+// configured, the ID already cached in state from a previous resolution,
+// or a freshly auto-provisioned project (a client named owner, a project
+// named repo under it) — cached in state afterward.
+//
+// The cache is what makes this safe to call on every startup: once
+// resolved, the ID is used as-is and never re-derived by name, so renaming
+// the project later in Toggl's UI is left alone rather than fought or
+// duplicated.
+func ResolveProject(ctx context.Context, tg TogglProjects, st *state.State, owner, repo string, workspaceID, explicitProjectID int64) (int64, error) {
+	if explicitProjectID > 0 {
+		return explicitProjectID, nil
+	}
+	if id := st.ProjectID(); id > 0 {
+		return id, nil
+	}
+
+	clientID, err := tg.FindOrCreateClient(ctx, workspaceID, owner)
+	if err != nil {
+		return 0, fmt.Errorf("resolving toggl client for %s: %w", owner, err)
+	}
+	projectID, err := tg.FindOrCreateProject(ctx, workspaceID, clientID, repo)
+	if err != nil {
+		return 0, fmt.Errorf("resolving toggl project for %s/%s: %w", owner, repo, err)
+	}
+	if err := st.SetProjectID(projectID); err != nil {
+		return 0, fmt.Errorf("caching resolved toggl project id: %w", err)
+	}
+	return projectID, nil
+}
+
 // RepoTimes pulls owner/repo's Forgejo time entries and creates a matching
 // Toggl entry for each one not already recorded in state. Safe to call
 // repeatedly: an entry already in state is skipped without touching Toggl.
