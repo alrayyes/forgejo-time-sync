@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.2.1...v1.3.0) (2026-08-17)
+
+
+### Features
+
+* add a Docker HEALTHCHECK ([395c07f](https://github.com/alrayyes/forgejo-time-sync/commit/395c07f7d5a700a83b5b4a539fcade3235fb6f37))
+
 ## [1.2.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.2.0...v1.2.1) (2026-08-17)
 
 
