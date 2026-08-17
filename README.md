@@ -15,7 +15,13 @@ than react.
 
 Every `SYNC_INTERVAL_SECONDS`, it calls Forgejo's
 `GET /repos/{owner}/{repo}/times` and creates a Toggl time entry for any
-entry not already recorded in local state. That local state — not asking
+entry not already recorded in local state. Each entry's description reads
+`forgejo-time-entry:<id> issue:<owner>/<repo>#<number>`, and it's also
+tagged with `<owner>/<repo>#<number>` — the same reference, but as
+structured metadata you can filter and search by in Toggl, not just read
+in the description text.
+
+That local state — not asking
 Toggl what already exists — is what makes a fast poll interval possible at
 all: Toggl Track's API caps the free tier at 30 requests/hour (see
 [Toggl's rate-limit docs](https://support.toggl.com/api-webhook-limits)), so

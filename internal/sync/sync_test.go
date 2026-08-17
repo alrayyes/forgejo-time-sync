@@ -25,26 +25,25 @@ func (f fakeForgejo) ListRepoTimes(context.Context, string, string) ([]forgejo.T
 }
 
 type fakeToggl struct {
-	created []toggl.Entry
-	err     error
+	received []toggl.NewTimeEntry
+	err      error
 
 	recent    []toggl.Entry
 	recentErr error
 }
 
-func (f *fakeToggl) CreateTimeEntry(_ context.Context, workspaceID, projectID int64, _ time.Time, duration time.Duration, description string) (toggl.Entry, error) {
+func (f *fakeToggl) CreateTimeEntry(_ context.Context, e toggl.NewTimeEntry) (toggl.Entry, error) {
 	if f.err != nil {
 		return toggl.Entry{}, f.err
 	}
-	e := toggl.Entry{
-		ID:          int64(len(f.created) + 1),
-		WorkspaceID: workspaceID,
-		ProjectID:   projectID,
-		Description: description,
-		Duration:    int64(duration.Seconds()),
-	}
-	f.created = append(f.created, e)
-	return e, nil
+	f.received = append(f.received, e)
+	return toggl.Entry{
+		ID:          int64(len(f.received)),
+		WorkspaceID: e.WorkspaceID,
+		ProjectID:   e.ProjectID,
+		Description: e.Description,
+		Duration:    int64(e.Duration.Seconds()),
+	}, nil
 }
 
 func (f *fakeToggl) ListRecentEntries(context.Context, time.Time) ([]toggl.Entry, error) {
@@ -77,6 +76,10 @@ func TestRepoTimesCreatesNewEntries(t *testing.T) {
 		require.Equal(t, "forgejo-time-entry:1 issue:alrayyes/repo#12", created[0].Description)
 	})
 
+	t.Run("tags the entry with the issue reference as structured metadata", func(t *testing.T) {
+		require.Equal(t, []string{"alrayyes/repo#12"}, tg.received[0].Tags)
+	})
+
 	t.Run("records the entry as synced", func(t *testing.T) {
 		require.True(t, st.Has(1))
 	})
@@ -99,7 +102,7 @@ func TestRepoTimesSkipsAlreadySyncedEntries(t *testing.T) {
 	})
 
 	t.Run("only the unsynced entry reached Toggl", func(t *testing.T) {
-		require.Len(t, tg.created, 1)
+		require.Len(t, tg.received, 1)
 	})
 }
 
@@ -120,7 +123,7 @@ func TestRepoTimesIsIdempotentOnRerun(t *testing.T) {
 	})
 
 	t.Run("Toggl only ever saw one create call across both runs", func(t *testing.T) {
-		require.Len(t, tg.created, 1)
+		require.Len(t, tg.received, 1)
 	})
 }
 

@@ -21,7 +21,7 @@ type ForgejoTimes interface {
 // TogglEntries is the one Toggl capability RepoTimes needs. Note there is
 // no update/delete here — RepoTimes can only ever create new entries.
 type TogglEntries interface {
-	CreateTimeEntry(ctx context.Context, workspaceID, projectID int64, start time.Time, duration time.Duration, description string) (toggl.Entry, error)
+	CreateTimeEntry(ctx context.Context, e toggl.NewTimeEntry) (toggl.Entry, error)
 }
 
 // TogglRecentEntries is the one Toggl capability Reconcile needs.
@@ -44,10 +44,14 @@ func RepoTimes(ctx context.Context, fg ForgejoTimes, tg TogglEntries, st *state.
 			continue
 		}
 
-		description := formatDescription(e.ID, owner, repo, e.IssueNumber)
-		duration := time.Duration(e.Seconds) * time.Second
-
-		entry, err := tg.CreateTimeEntry(ctx, togglWorkspaceID, togglProjectID, e.Created, duration, description)
+		entry, err := tg.CreateTimeEntry(ctx, toggl.NewTimeEntry{
+			WorkspaceID: togglWorkspaceID,
+			ProjectID:   togglProjectID,
+			Start:       e.Created,
+			Duration:    time.Duration(e.Seconds) * time.Second,
+			Description: formatDescription(e.ID, owner, repo, e.IssueNumber),
+			Tags:        []string{issueRef(owner, repo, e.IssueNumber)},
+		})
 		if err != nil {
 			return created, fmt.Errorf("syncing forgejo time entry %d: %w", e.ID, err)
 		}
@@ -90,7 +94,11 @@ const descriptionPrefix = "forgejo-time-entry:"
 var syncedIDPattern = regexp.MustCompile(`^forgejo-time-entry:(\d+)`)
 
 func formatDescription(id int64, owner, repo string, issueNumber int64) string {
-	return fmt.Sprintf("%s%d issue:%s/%s#%d", descriptionPrefix, id, owner, repo, issueNumber)
+	return fmt.Sprintf("%s%d issue:%s", descriptionPrefix, id, issueRef(owner, repo, issueNumber))
+}
+
+func issueRef(owner, repo string, issueNumber int64) string {
+	return fmt.Sprintf("%s/%s#%d", owner, repo, issueNumber)
 }
 
 func parseSyncedID(description string) (int64, bool) {
