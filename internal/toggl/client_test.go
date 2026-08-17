@@ -150,6 +150,114 @@ func TestCreateTimeEntryGivesUpAfterRepeated402(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestFindOrCreateClientFindsAnExistingClientByName(t *testing.T) {
+	var postCount int
+
+	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			postCount++
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id": 7, "name": "alrayyes"}, {"id": 8, "name": "someone-else"}]`))
+	})
+
+	id, err := c.FindOrCreateClient(t.Context(), 1, "alrayyes")
+	require.NoError(t, err)
+
+	t.Run("returns the matching client's id", func(t *testing.T) {
+		require.Equal(t, int64(7), id)
+	})
+
+	t.Run("never creates a duplicate", func(t *testing.T) {
+		require.Zero(t, postCount)
+	})
+}
+
+func TestFindOrCreateClientCreatesWhenNoneMatch(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody map[string]any
+
+	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"id": 9, "name": "alrayyes"}`))
+	})
+
+	id, err := c.FindOrCreateClient(t.Context(), 1, "alrayyes")
+	require.NoError(t, err)
+
+	t.Run("returns the newly created client's id", func(t *testing.T) {
+		require.Equal(t, int64(9), id)
+	})
+
+	t.Run("creates it with a POST to the clients endpoint", func(t *testing.T) {
+		require.Equal(t, http.MethodPost, gotMethod)
+		require.Equal(t, "/api/v9/workspaces/1/clients", gotPath)
+	})
+
+	t.Run("sends the requested name", func(t *testing.T) {
+		require.Equal(t, "alrayyes", gotBody["name"])
+	})
+}
+
+func TestFindOrCreateProjectFindsAnExistingProjectByNameAndClient(t *testing.T) {
+	var postCount int
+
+	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			postCount++
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"id": 20, "name": "repo", "client_id": 999},
+			{"id": 21, "name": "repo", "client_id": 7}
+		]`))
+	})
+
+	id, err := c.FindOrCreateProject(t.Context(), 1, 7, "repo")
+	require.NoError(t, err)
+
+	t.Run("returns the project matching both name and client", func(t *testing.T) {
+		require.Equal(t, int64(21), id)
+	})
+
+	t.Run("never creates a duplicate", func(t *testing.T) {
+		require.Zero(t, postCount)
+	})
+}
+
+func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
+	var gotBody map[string]any
+
+	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"id": 22, "name": "repo", "client_id": 7}`))
+	})
+
+	id, err := c.FindOrCreateProject(t.Context(), 1, 7, "repo")
+	require.NoError(t, err)
+
+	t.Run("returns the newly created project's id", func(t *testing.T) {
+		require.Equal(t, int64(22), id)
+	})
+
+	t.Run("creates it under the given client", func(t *testing.T) {
+		require.Equal(t, "repo", gotBody["name"])
+		require.Equal(t, float64(7), gotBody["client_id"])
+	})
+}
+
 func TestListRecentEntries(t *testing.T) {
 	var gotPath string
 

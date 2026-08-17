@@ -97,3 +97,28 @@ func TestSyncIsIdempotentOnRerun(t *testing.T) {
 		require.Len(t, proxy.Requests(), 1)
 	})
 }
+
+func TestSyncAutoProvisionsTogglProjectWhenNoneConfigured(t *testing.T) {
+	ctx := t.Context()
+	_, tg, proxy, st := newSyncFixture(t, ctx)
+
+	projectID, err := sync.ResolveProject(ctx, tg, st, "alrayyes", "e2e-repo", togglWorkspaceID, 0)
+	require.NoError(t, err)
+
+	t.Run("resolves to some project id, validated against toggl's real client/project contract", func(t *testing.T) {
+		require.NotZero(t, projectID)
+	})
+
+	t.Run("caches the resolved id in state", func(t *testing.T) {
+		require.Equal(t, projectID, st.ProjectID())
+	})
+
+	firstPassRequests := len(proxy.Requests())
+
+	t.Run("resolving again reuses the cached id without touching toggl again", func(t *testing.T) {
+		again, err := sync.ResolveProject(ctx, tg, st, "alrayyes", "e2e-repo", togglWorkspaceID, 0)
+		require.NoError(t, err)
+		require.Equal(t, projectID, again)
+		require.Len(t, proxy.Requests(), firstPassRequests, "no new requests should have been made")
+	})
+}

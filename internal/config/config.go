@@ -15,8 +15,11 @@ type Config struct {
 	ForgejoOwner   string
 	ForgejoRepo    string
 
-	TogglAPIToken           string
-	TogglWorkspaceID        int64
+	TogglAPIToken    string
+	TogglWorkspaceID int64
+	// TogglProjectID is optional: 0 means auto-provision a Toggl client
+	// (named after ForgejoOwner) and project (named after ForgejoRepo)
+	// instead of syncing into an explicitly chosen one.
 	TogglProjectID          int64
 	TogglMaxRequestsPerHour int
 
@@ -50,7 +53,6 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.ForgejoRepo = required("FORGEJO_REPO")
 	cfg.TogglAPIToken = required("TOGGL_API_TOKEN")
 	workspaceID := required("TOGGL_WORKSPACE_ID")
-	projectID := required("TOGGL_PROJECT_ID")
 
 	if len(missing) > 0 {
 		return Config{}, fmt.Errorf("config: missing required environment variables: %v", missing)
@@ -60,8 +62,11 @@ func Load(getenv func(string) string) (Config, error) {
 	if cfg.TogglWorkspaceID, err = strconv.ParseInt(workspaceID, 10, 64); err != nil {
 		return Config{}, fmt.Errorf("config: TOGGL_WORKSPACE_ID: %w", err)
 	}
-	if cfg.TogglProjectID, err = strconv.ParseInt(projectID, 10, 64); err != nil {
-		return Config{}, fmt.Errorf("config: TOGGL_PROJECT_ID: %w", err)
+
+	if v := getenv("TOGGL_PROJECT_ID"); v != "" {
+		if cfg.TogglProjectID, err = strconv.ParseInt(v, 10, 64); err != nil {
+			return Config{}, fmt.Errorf("config: TOGGL_PROJECT_ID: %w", err)
+		}
 	}
 
 	cfg.SyncInterval = defaultSyncIntervalSeconds * time.Second

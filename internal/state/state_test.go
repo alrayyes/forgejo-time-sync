@@ -54,6 +54,37 @@ func TestAddIsIdempotent(t *testing.T) {
 	require.Equal(t, 1, s.Len(), "adding the same id twice should not grow the state")
 }
 
+func TestProjectIDDefaultsToZero(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	s, err := state.Load(path)
+	require.NoError(t, err)
+
+	require.Zero(t, s.ProjectID())
+}
+
+func TestSetProjectIDPersistsAcrossLoad(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	s, err := state.Load(path)
+	require.NoError(t, err)
+	require.NoError(t, s.SetProjectID(42))
+
+	reloaded, err := state.Load(path)
+	require.NoError(t, err)
+
+	require.Equal(t, int64(42), reloaded.ProjectID())
+}
+
+func TestSetProjectIDDoesNotDisturbSyncedIDs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	s, err := state.Load(path)
+	require.NoError(t, err)
+	require.NoError(t, s.Add(1))
+
+	require.NoError(t, s.SetProjectID(42))
+
+	require.True(t, s.Has(1), "setting the project id should not touch the synced-entries set")
+}
+
 func TestAddLeavesNoTempFileBehind(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "state.json")

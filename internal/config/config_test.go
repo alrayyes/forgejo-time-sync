@@ -21,7 +21,6 @@ func validEnv() map[string]string {
 		"FORGEJO_REPO":       "forgejo-time-sync",
 		"TOGGL_API_TOKEN":    "toggl-token",
 		"TOGGL_WORKSPACE_ID": "111",
-		"TOGGL_PROJECT_ID":   "222",
 	}
 }
 
@@ -39,7 +38,10 @@ func TestLoadWithAllRequiredVars(t *testing.T) {
 	t.Run("forwards the toggl settings", func(t *testing.T) {
 		require.Equal(t, "toggl-token", cfg.TogglAPIToken)
 		require.EqualValues(t, 111, cfg.TogglWorkspaceID)
-		require.EqualValues(t, 222, cfg.TogglProjectID)
+	})
+
+	t.Run("defaults the project id to unset, for auto-provisioning", func(t *testing.T) {
+		require.Zero(t, cfg.TogglProjectID)
 	})
 
 	t.Run("defaults the sync interval to 10 seconds", func(t *testing.T) {
@@ -60,6 +62,7 @@ func TestLoadOverridesOptionalVars(t *testing.T) {
 	env["SYNC_INTERVAL_SECONDS"] = "5"
 	env["STATE_FILE_PATH"] = "/tmp/custom.json"
 	env["TOGGL_MAX_REQUESTS_PER_HOUR"] = "600"
+	env["TOGGL_PROJECT_ID"] = "222"
 
 	cfg, err := config.Load(fakeGetenv(env))
 	require.NoError(t, err)
@@ -67,12 +70,22 @@ func TestLoadOverridesOptionalVars(t *testing.T) {
 	require.Equal(t, 5*time.Second, cfg.SyncInterval)
 	require.Equal(t, "/tmp/custom.json", cfg.StateFilePath)
 	require.Equal(t, 600, cfg.TogglMaxRequestsPerHour)
+	require.EqualValues(t, 222, cfg.TogglProjectID)
+}
+
+func TestLoadRejectsNonNumericProjectID(t *testing.T) {
+	env := validEnv()
+	env["TOGGL_PROJECT_ID"] = "not-a-number"
+
+	_, err := config.Load(fakeGetenv(env))
+
+	require.Error(t, err)
 }
 
 func TestLoadRequiresEveryMandatoryVar(t *testing.T) {
 	for _, key := range []string{
 		"FORGEJO_BASE_URL", "FORGEJO_TOKEN", "FORGEJO_OWNER", "FORGEJO_REPO",
-		"TOGGL_API_TOKEN", "TOGGL_WORKSPACE_ID", "TOGGL_PROJECT_ID",
+		"TOGGL_API_TOKEN", "TOGGL_WORKSPACE_ID",
 	} {
 		t.Run("missing "+key, func(t *testing.T) {
 			env := validEnv()

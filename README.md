@@ -47,12 +47,19 @@ One Forgejo repo maps to one Toggl project, and one container instance
 handles one repo. Multiple repos means multiple container instances, each
 with its own config and state volume.
 
+If you don't already have a Toggl project to sync into, leave
+`TOGGL_PROJECT_ID` unset and it auto-provisions one on first run: a Toggl
+client named after `FORGEJO_OWNER`, and a project under it named after
+`FORGEJO_REPO`. The resolved project ID is then cached in the state file
+and used as-is from then on — it's never looked up by name again, so
+renaming the project in Toggl's UI later doesn't get fought or duplicated.
+
 ## Requirements
 
 - A Forgejo instance with an API token that can read the target repo's
   tracked time.
-- A Toggl Track account, an API token, and the workspace/project IDs you
-  want entries created in.
+- A Toggl Track account and an API token. You don't need to create a
+  project up front — see above.
 - Docker (or Go 1.26+ and a Docker daemon, if building from source — the
   test suite's container/integration layer needs one either way).
 
@@ -93,7 +100,7 @@ All configuration is environment variables — see `.env.example`.
 | `FORGEJO_REPO`                | yes      | —                  |
 | `TOGGL_API_TOKEN`             | yes      | —                  |
 | `TOGGL_WORKSPACE_ID`          | yes      | —                  |
-| `TOGGL_PROJECT_ID`            | yes      | —                  |
+| `TOGGL_PROJECT_ID`            | no       | auto-provisioned   |
 | `SYNC_INTERVAL_SECONDS`       | no       | `10`               |
 | `STATE_FILE_PATH`             | no       | `/data/state.json` |
 | `TOGGL_MAX_REQUESTS_PER_HOUR` | no       | `30`               |

@@ -52,6 +52,15 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	projectAlreadyResolved := cfg.TogglProjectID != 0 || st.ProjectID() != 0
+	projectID, err := sync.ResolveProject(ctx, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, cfg.TogglProjectID)
+	if err != nil {
+		return err
+	}
+	if !projectAlreadyResolved {
+		logger.Info("auto-provisioned toggl client/project", "toggl_project_id", projectID)
+	}
+
 	if st.Len() == 0 {
 		logger.Info("state is empty, reconciling against toggl before starting the poll loop")
 		if err := sync.Reconcile(ctx, tg, st, time.Now().Add(-reconcileLookback)); err != nil {
@@ -74,13 +83,13 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			logger.Info("shutting down")
 			return nil
 		case <-ticker.C:
-			poll(ctx, logger, fg, tg, st, cfg)
+			poll(ctx, logger, fg, tg, st, cfg, projectID)
 		}
 	}
 }
 
-func poll(ctx context.Context, logger *slog.Logger, fg forgejo.Client, tg *toggl.Client, st *state.State, cfg config.Config) {
-	created, err := sync.RepoTimes(ctx, fg, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, cfg.TogglProjectID)
+func poll(ctx context.Context, logger *slog.Logger, fg forgejo.Client, tg *toggl.Client, st *state.State, cfg config.Config, projectID int64) {
+	created, err := sync.RepoTimes(ctx, fg, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, projectID)
 	if err != nil {
 		logger.Error("sync pass failed, retrying next poll", "error", err)
 		return
