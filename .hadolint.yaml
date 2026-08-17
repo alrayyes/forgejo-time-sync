@@ -1,0 +1,2 @@
+# No ignored rules yet. Add one here, with why, rather than a scattered
+# `# hadolint ignore=` comment in the Dockerfile.

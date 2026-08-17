@@ -1,6 +1,9 @@
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-.ruff_cache/
-*.egg-info/
+/forgejo-time-sync
+/dist
+coverage.out
+coverage.html
+
+node_modules/
+.bun-cache/
+
+.env

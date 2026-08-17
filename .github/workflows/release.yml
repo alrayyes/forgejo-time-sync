@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.release.outputs.new_release_published }}
+      version: ${{ steps.release.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - id: release
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
+        with:
+          semantic_version: "25.0.9"
+          extra_plugins: |
+            @semantic-release/changelog@7.0.0
+            @semantic-release/git@11.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # A tag release-please/semantic-release pushes with the default
+  # GITHUB_TOKEN starts no further workflow, so this stays a job in the
+  # same run rather than its own on-tag workflow — that would silently
+  # never fire.
+  publish-image:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: v${{ needs.release.outputs.version }}
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          image=ghcr.io/${{ github.repository }}
+          version=${{ needs.release.outputs.version }}
+          docker build -t "$image:$version" -t "$image:latest" .
+          docker push "$image:$version"
+          docker push "$image:latest"

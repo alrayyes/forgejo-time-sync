@@ -1,0 +1,18 @@
+globs:
+  - "**/*.md"
+
+ignores:
+  - "**/node_modules/**"
+  - "**/.bun-cache/**"
+
+config:
+  # markdownlint/style/prettier drops MD013 because Prettier reflows prose on
+  # proseWrap "always"/"never" — this repo runs "preserve", so Prettier never
+  # moves a line break and the check is still worth having. Re-enabled under
+  # its alias, never under MD013, or the inherited `line-length: false` wins.
+  line-length:
+    line_length: 80
+    tables: false
+    code_blocks: false
+
+extends: "markdownlint/style/prettier"

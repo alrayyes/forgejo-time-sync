@@ -1,0 +1,6 @@
+# Vendored third-party spec — kept byte-identical to what
+# scripts/vendor-toggl-spec.sh downloaded, not reformatted to our style.
+e2e/testdata/
+
+CHANGELOG.md
+bun.lock
