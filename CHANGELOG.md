@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.0.0...v1.1.0) (2026-08-17)
+
+
+### Features
+
+* **toggl:** tag entries with the issue reference, not just the description ([36b88ec](https://github.com/alrayyes/forgejo-time-sync/commit/36b88ec4494fe671446f390b94eb101f890cdd48)), closes [owner/repo#N](https://github.com/owner/repo/issues/N)
+
 # 1.0.0 (2026-08-17)
 
 
