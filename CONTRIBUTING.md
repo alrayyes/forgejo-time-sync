@@ -59,6 +59,14 @@ pushed straight to `main`.
 
 ## Releases
 
-This ships as a container image (`docker build .`), not a distributed
-binary, so there's no goreleaser/release-please pipeline here — pull the
-image built off whatever commit you want to run.
+[semantic-release](https://semantic-release.gitbook.io/) decides the
+version from the Conventional Commits on `main`: `feat:` cuts a minor,
+`fix:` a patch, a `BREAKING CHANGE:` footer a major, and a push of only
+`docs:`/`chore:` releases nothing. Nobody picks a version by hand.
+
+Merging to `main` is what triggers it — see `.github/workflows/release.yml`.
+It tags the release, writes `CHANGELOG.md`, creates the GitHub release, and
+on a successful release builds and pushes the image to
+`ghcr.io/alrayyes/forgejo-time-sync`, tagged with both the version and
+`latest`. There's no goreleaser here since there's no binary artifact for
+it to build — the image is the release artifact.

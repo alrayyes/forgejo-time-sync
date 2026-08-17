@@ -53,21 +53,27 @@ with its own config and state volume.
 
 ## Installation
 
+Pull the published image — every merge to `main` releases a new version to
+`ghcr.io`, tagged with both the version and `latest`:
+
+```sh
+mkdir forgejo-time-sync && cd forgejo-time-sync
+curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/.env.example
+cp .env.example .env # fill in your Forgejo and Toggl details
+docker run -d --restart unless-stopped \
+  --env-file .env \
+  -v forgejo-time-sync-state:/data \
+  ghcr.io/alrayyes/forgejo-time-sync:latest
+```
+
+Or build from source:
+
 ```sh
 git clone https://github.com/alrayyes/forgejo-time-sync.git
 cd forgejo-time-sync
 cp .env.example .env # fill in your Forgejo and Toggl details
 docker compose up -d
-```
-
-Or without compose:
-
-```sh
-docker build -t forgejo-time-sync .
-docker run -d --restart unless-stopped \
-  --env-file .env \
-  -v forgejo-time-sync-state:/data \
-  forgejo-time-sync
 ```
 
 ## Configuration
