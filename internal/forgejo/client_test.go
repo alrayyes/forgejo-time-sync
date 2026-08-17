@@ -11,20 +11,53 @@ import (
 	"github.com/alrayyes/forgejo-time-sync/internal/forgejo"
 )
 
+// newTestServer serves the SDK's own version handshake plus whatever
+// handler the test provides for the actual call under test.
+func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"version": "12.0.0"}`))
+	})
+	mux.HandleFunc("/", handler)
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestNewClientConnects(t *testing.T) {
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	_, err := forgejo.NewClient(srv.URL, "s3cr3t")
+
+	require.NoError(t, err)
+}
+
+func TestNewClientFailsOnAConnectionError(t *testing.T) {
+	_, err := forgejo.NewClient("http://127.0.0.1:1", "s3cr3t")
+
+	require.Error(t, err)
+}
+
 func TestListRepoTimes(t *testing.T) {
 	var gotPath, gotAuth string
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`[
 			{"id": 1, "created": "2026-08-17T09:00:00Z", "time": 5400, "issue": {"number": 12}}
 		]`))
-	}))
-	defer srv.Close()
+	})
 
-	c := forgejo.Client{BaseURL: srv.URL, Token: "s3cr3t"}
+	c, err := forgejo.NewClient(srv.URL, "s3cr3t")
+	require.NoError(t, err)
+
 	entries, err := c.ListRepoTimes(t.Context(), "alrayyes", "forgejo-time-sync")
 	require.NoError(t, err)
 
@@ -59,13 +92,13 @@ func TestListRepoTimes(t *testing.T) {
 }
 
 func TestListRepoTimesErrorStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer srv.Close()
+	})
+	c, err := forgejo.NewClient(srv.URL, "bad-token")
+	require.NoError(t, err)
 
-	c := forgejo.Client{BaseURL: srv.URL, Token: "bad-token"}
-	_, err := c.ListRepoTimes(t.Context(), "alrayyes", "forgejo-time-sync")
+	_, err = c.ListRepoTimes(t.Context(), "alrayyes", "forgejo-time-sync")
 
 	require.Error(t, err)
 }
