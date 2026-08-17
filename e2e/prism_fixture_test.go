@@ -1,0 +1,135 @@
+//go:build e2e
+
+package e2e
+
+import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
+)
+
+const prismImage = "stoplight/prism:5.14.2"
+
+// startPrismMock boots a Prism mock server, loaded with the vendored Toggl
+// OpenAPI spec, and returns its base URL. Every request Prism accepts is a
+// request that conforms to Toggl's real published contract — the point of
+// mocking against the spec rather than hand-writing fake responses.
+func startPrismMock(t *testing.T, ctx context.Context) string {
+	t.Helper()
+
+	specPath, err := filepath.Abs("testdata/toggl-openapi.json")
+	require.NoError(t, err)
+
+	req := testcontainers.ContainerRequest{
+		Image:        prismImage,
+		ExposedPorts: []string{"4010/tcp"},
+		Cmd:          []string{"mock", "-h", "0.0.0.0", "/data/spec.json"},
+		Files: []testcontainers.ContainerFile{
+			{HostFilePath: specPath, ContainerFilePath: "/data/spec.json", FileMode: 0o644},
+		},
+		WaitingFor: wait.ForLog("Prism is listening"),
+	}
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+
+	endpoint, err := container.PortEndpoint(ctx, "4010/tcp", "http")
+	require.NoError(t, err)
+	return endpoint
+}
+
+// recordedRequest is what recordingProxy captured on its way to Prism.
+type recordedRequest struct {
+	Method string
+	Path   string
+}
+
+// recordingProxy sits between the client under test and Prism, so a test
+// can assert on exactly which requests were made (in particular: that only
+// POST .../time_entries ever went out, never anything that could start,
+// stop, or modify an existing entry) while Prism still does the real
+// contract validation and response generation.
+type recordingProxy struct {
+	server *httptest.Server
+
+	mu       sync.Mutex
+	requests []recordedRequest
+}
+
+func newRecordingProxy(t *testing.T, targetBaseURL string) *recordingProxy {
+	t.Helper()
+
+	p := &recordingProxy{}
+	p.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.record(r)
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+
+		// Prism ignores the spec's Swagger 2 `basePath` and serves every
+		// path bare — real Toggl serves everything under /api/v9. The
+		// production client only ever knows about the real path, so the
+		// rewrite lives here in the test-only proxy, not in toggl.Client.
+		targetPath := strings.TrimPrefix(r.URL.Path, "/api/v9")
+		targetURL := targetBaseURL + targetPath
+		if r.URL.RawQuery != "" {
+			targetURL += "?" + r.URL.RawQuery
+		}
+
+		outbound, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL, bytes.NewReader(body))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		outbound.Header = r.Header.Clone()
+
+		resp, err := http.DefaultClient.Do(outbound)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		for key, values := range resp.Header {
+			for _, v := range values {
+				w.Header().Add(key, v)
+			}
+		}
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+	}))
+	t.Cleanup(p.server.Close)
+	return p
+}
+
+func (p *recordingProxy) record(r *http.Request) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.requests = append(p.requests, recordedRequest{Method: r.Method, Path: r.URL.Path})
+}
+
+func (p *recordingProxy) URL() string { return p.server.URL }
+
+func (p *recordingProxy) Requests() []recordedRequest {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]recordedRequest, len(p.requests))
+	copy(out, p.requests)
+	return out
+}
