@@ -15,8 +15,13 @@ type Config struct {
 	ForgejoOwner   string
 	ForgejoRepo    string
 
-	TogglAPIToken    string
-	TogglWorkspaceID int64
+	TogglAPIToken string
+	// TogglOrganizationID and TogglWorkspaceID together scope every Focus API
+	// call — the API has no "list my organizations" endpoint to derive the
+	// former from, so it's configured directly (find it in Toggl's
+	// organization settings URL).
+	TogglOrganizationID int64
+	TogglWorkspaceID    int64
 	// TogglProjectID is optional: 0 means auto-provision a Toggl client
 	// (named after ForgejoOwner) and project (named after ForgejoRepo)
 	// instead of syncing into an explicitly chosen one.
@@ -52,6 +57,7 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.ForgejoOwner = required("FORGEJO_OWNER")
 	cfg.ForgejoRepo = required("FORGEJO_REPO")
 	cfg.TogglAPIToken = required("TOGGL_API_TOKEN")
+	organizationID := required("TOGGL_ORGANIZATION_ID")
 	workspaceID := required("TOGGL_WORKSPACE_ID")
 
 	if len(missing) > 0 {
@@ -59,6 +65,9 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	var err error
+	if cfg.TogglOrganizationID, err = strconv.ParseInt(organizationID, 10, 64); err != nil {
+		return Config{}, fmt.Errorf("config: TOGGL_ORGANIZATION_ID: %w", err)
+	}
 	if cfg.TogglWorkspaceID, err = strconv.ParseInt(workspaceID, 10, 64); err != nil {
 		return Config{}, fmt.Errorf("config: TOGGL_WORKSPACE_ID: %w", err)
 	}

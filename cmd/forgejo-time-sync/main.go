@@ -1,5 +1,5 @@
 // Command forgejo-time-sync polls a Forgejo repo's tracked time and pushes
-// any entry not already recorded in local state into Toggl Track, on a
+// any entry not already recorded in local state into Toggl, on a
 // timer, until it receives SIGINT or SIGTERM.
 //
 // Every setting is an environment variable — see the README — so there is
@@ -88,7 +88,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	tg := toggl.NewClient(cfg.TogglAPIToken, cfg.TogglMaxRequestsPerHour)
+	tg := toggl.NewClient(cfg.TogglAPIToken, cfg.TogglOrganizationID, cfg.TogglMaxRequestsPerHour)
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -104,7 +104,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	if st.Len() == 0 {
 		logger.Info("state is empty, reconciling against toggl before starting the poll loop")
-		if err := sync.Reconcile(ctx, tg, st, time.Now().Add(-reconcileLookback)); err != nil {
+		if err := sync.Reconcile(ctx, tg, st, cfg.TogglWorkspaceID, time.Now().Add(-reconcileLookback)); err != nil {
 			logger.Warn("reconciliation failed, continuing with empty state", "error", err)
 		}
 	}

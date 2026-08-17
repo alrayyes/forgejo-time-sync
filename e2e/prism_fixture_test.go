@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
@@ -21,13 +20,25 @@ import (
 const prismImage = "stoplight/prism:5.14.2@sha256:87972b6cf73da2c0339fca18f362b6f93118152d652c970fab93ed13cfd55bae"
 
 // startPrismMock boots a Prism mock server, loaded with the vendored Toggl
-// OpenAPI spec, and returns its base URL. Every request Prism accepts is a
-// request that conforms to Toggl's real published contract — the point of
-// mocking against the spec rather than hand-writing fake responses.
+// Focus (2.0) API OpenAPI spec, and returns its base URL. Every request
+// Prism accepts is a request that conforms to Toggl's real published
+// contract — the point of mocking against the spec rather than hand-writing
+// fake responses.
+//
+// The vendored spec (testdata/focus-openapi.json) has two hand-patches on
+// top of what Toggl publishes, both worked around at the mock layer rather
+// than in toggl.Client, since neither reflects real API behavior: every
+// operation's `security` requirement was stripped (as vendored, it demands
+// a bearerAuth token *and* a cookieAuth cookie together, which would 401 a
+// client that only ever sends a bearer token — not how the real API works),
+// and every `id` property gained `"minimum": 1` (Prism's dynamic response
+// generator will otherwise happily hand out negative ids, which this tool's
+// state cache reads the same as Track's zero-id case: "nothing resolved
+// yet").
 func startPrismMock(t *testing.T, ctx context.Context) string {
 	t.Helper()
 
-	specPath, err := filepath.Abs("testdata/toggl-openapi.json")
+	specPath, err := filepath.Abs("testdata/focus-openapi.json")
 	require.NoError(t, err)
 
 	req := testcontainers.ContainerRequest{
@@ -64,10 +75,10 @@ type recordedRequest struct {
 }
 
 // recordingProxy sits between the client under test and Prism, so a test
-// can assert on exactly which requests were made (in particular: that only
-// POST .../time_entries ever went out, never anything that could start,
-// stop, or modify an existing entry) while Prism still does the real
-// contract validation and response generation.
+// can assert on exactly which requests were made (in particular: that
+// .../time-entries only ever sees a POST, never a PUT/PATCH/DELETE that
+// could start, stop, or modify an existing entry) while Prism still does
+// the real contract validation and response generation.
 type recordingProxy struct {
 	server *httptest.Server
 
@@ -88,12 +99,11 @@ func newRecordingProxy(t *testing.T, targetBaseURL string) *recordingProxy {
 			return
 		}
 
-		// Prism ignores the spec's Swagger 2 `basePath` and serves every
-		// path bare — real Toggl serves everything under /api/v9. The
-		// production client only ever knows about the real path, so the
-		// rewrite lives here in the test-only proxy, not in toggl.Client.
-		targetPath := strings.TrimPrefix(r.URL.Path, "/api/v9")
-		targetURL := targetBaseURL + targetPath
+		// toggl.Client's default BaseURL already carries the real API's
+		// /api prefix, so the paths it builds (e.g. /organizations/...)
+		// are bare — matching Prism, which ignores the spec's Swagger 2
+		// `basePath` and serves every path bare too. Nothing to rewrite.
+		targetURL := targetBaseURL + r.URL.Path
 		if r.URL.RawQuery != "" {
 			targetURL += "?" + r.URL.RawQuery
 		}

@@ -15,12 +15,13 @@ func fakeGetenv(vars map[string]string) func(string) string {
 
 func validEnv() map[string]string {
 	return map[string]string{
-		"FORGEJO_BASE_URL":   "https://forgejo.example.com",
-		"FORGEJO_TOKEN":      "forgejo-token",
-		"FORGEJO_OWNER":      "alrayyes",
-		"FORGEJO_REPO":       "forgejo-time-sync",
-		"TOGGL_API_TOKEN":    "toggl-token",
-		"TOGGL_WORKSPACE_ID": "111",
+		"FORGEJO_BASE_URL":      "https://forgejo.example.com",
+		"FORGEJO_TOKEN":         "forgejo-token",
+		"FORGEJO_OWNER":         "alrayyes",
+		"FORGEJO_REPO":          "forgejo-time-sync",
+		"TOGGL_API_TOKEN":       "toggl-token",
+		"TOGGL_ORGANIZATION_ID": "50",
+		"TOGGL_WORKSPACE_ID":    "111",
 	}
 }
 
@@ -37,6 +38,7 @@ func TestLoadWithAllRequiredVars(t *testing.T) {
 
 	t.Run("forwards the toggl settings", func(t *testing.T) {
 		require.Equal(t, "toggl-token", cfg.TogglAPIToken)
+		require.EqualValues(t, 50, cfg.TogglOrganizationID)
 		require.EqualValues(t, 111, cfg.TogglWorkspaceID)
 	})
 
@@ -85,7 +87,7 @@ func TestLoadRejectsNonNumericProjectID(t *testing.T) {
 func TestLoadRequiresEveryMandatoryVar(t *testing.T) {
 	for _, key := range []string{
 		"FORGEJO_BASE_URL", "FORGEJO_TOKEN", "FORGEJO_OWNER", "FORGEJO_REPO",
-		"TOGGL_API_TOKEN", "TOGGL_WORKSPACE_ID",
+		"TOGGL_API_TOKEN", "TOGGL_ORGANIZATION_ID", "TOGGL_WORKSPACE_ID",
 	} {
 		t.Run("missing "+key, func(t *testing.T) {
 			env := validEnv()
@@ -101,6 +103,15 @@ func TestLoadRequiresEveryMandatoryVar(t *testing.T) {
 func TestLoadRejectsNonNumericTogglIDs(t *testing.T) {
 	env := validEnv()
 	env["TOGGL_WORKSPACE_ID"] = "not-a-number"
+
+	_, err := config.Load(fakeGetenv(env))
+
+	require.Error(t, err)
+}
+
+func TestLoadRejectsNonNumericOrganizationID(t *testing.T) {
+	env := validEnv()
+	env["TOGGL_ORGANIZATION_ID"] = "not-a-number"
 
 	_, err := config.Load(fakeGetenv(env))
 
