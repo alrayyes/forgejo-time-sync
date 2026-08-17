@@ -3,19 +3,25 @@
 // timer, until it receives SIGINT or SIGTERM.
 //
 // Every setting is an environment variable — see the README — so there is
-// no flag parsing here, and nothing to hand off to a CLI framework.
+// no flag parsing here, and nothing to hand off to a CLI framework. The one
+// exception is a single positional "healthcheck" argument, invoked by the
+// Dockerfile's HEALTHCHECK rather than a person, since the distroless base
+// image has no shell or curl to run one out of.
 package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/alrayyes/forgejo-time-sync/internal/config"
 	"github.com/alrayyes/forgejo-time-sync/internal/forgejo"
+	"github.com/alrayyes/forgejo-time-sync/internal/health"
 	"github.com/alrayyes/forgejo-time-sync/internal/state"
 	"github.com/alrayyes/forgejo-time-sync/internal/sync"
 	"github.com/alrayyes/forgejo-time-sync/internal/toggl"
@@ -27,12 +33,44 @@ import (
 const reconcileLookback = 90 * 24 * time.Hour
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := runHealthcheck(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	if err := run(context.Background(), logger); err != nil {
 		logger.Error("forgejo-time-sync exiting", "error", err)
 		os.Exit(1)
 	}
+}
+
+// runHealthcheck reads the same env config the main loop would, so it's
+// checking the heartbeat file that same configuration's poll loop writes.
+func runHealthcheck() error {
+	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		return err
+	}
+	hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
+	return hb.Check(heartbeatMaxAge(cfg.SyncInterval))
+}
+
+// heartbeatPath keeps the heartbeat file on the same volume as the state
+// file, so it needs no config of its own.
+func heartbeatPath(stateFilePath string) string {
+	return filepath.Join(filepath.Dir(stateFilePath), "healthcheck")
+}
+
+// heartbeatMaxAge allows a couple of missed ticks — a single slow poll
+// (a slow Forgejo/Toggl response, not a hang) shouldn't flap the container
+// unhealthy — while still catching a genuinely stuck loop.
+func heartbeatMaxAge(interval time.Duration) time.Duration {
+	return 3 * interval
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
@@ -74,6 +112,16 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		"forgejo_repo", cfg.ForgejoRepo,
 	)
 
+	hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
+	touchHeartbeat := func() {
+		if err := hb.Touch(); err != nil {
+			logger.Warn("failed to update healthcheck heartbeat", "error", err)
+		}
+	}
+	// Touched once up front so the healthcheck can pass immediately,
+	// rather than waiting out the first full interval.
+	touchHeartbeat()
+
 	ticker := time.NewTicker(cfg.SyncInterval)
 	defer ticker.Stop()
 
@@ -84,6 +132,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			return nil
 		case <-ticker.C:
 			poll(ctx, logger, fg, tg, st, cfg, projectID)
+			// Touched regardless of whether poll found or synced
+			// anything — this tracks that the loop is still cycling,
+			// not that Forgejo/Toggl are reachable. A real outage on
+			// either side should keep retrying, not get "fixed" by
+			// Docker restarting a container that was never stuck.
+			touchHeartbeat()
 		}
 	}
 }

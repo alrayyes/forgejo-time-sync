@@ -117,6 +117,14 @@ new:
 It shuts down cleanly on `SIGTERM`/`SIGINT` — `docker compose down` or
 `docker stop` are safe.
 
+The image has a `HEALTHCHECK`: it touches a heartbeat file next to
+`state.json` after every poll cycle and fails if that file goes stale for
+more than 3 poll intervals. It tracks whether the loop is still cycling,
+not whether Forgejo/Toggl are reachable — a real outage on either side
+should keep retrying forever, not get "fixed" by Docker restarting a
+container that was never actually stuck. `docker ps` and `docker inspect`
+show the status the usual way.
+
 ## Testing
 
 ```sh
