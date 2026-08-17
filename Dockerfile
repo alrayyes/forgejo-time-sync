@@ -16,4 +16,8 @@ FROM gcr.io/distroless/static-debian12:nonroot@sha256:1b7b9f0f0e0a1d2155f531db58
 COPY --from=build /out/forgejo-time-sync /forgejo-time-sync
 COPY --from=build --chown=65532:65532 /out/data /data
 VOLUME /data
+# Exec form, calling the binary itself with its "healthcheck" argument —
+# distroless has no shell or curl for a CMD-SHELL/curl-style check to run.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["/forgejo-time-sync", "healthcheck"]
 ENTRYPOINT ["/forgejo-time-sync"]
