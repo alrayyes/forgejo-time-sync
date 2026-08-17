@@ -1,9 +1,12 @@
 // Package toggl is a minimal, deliberately narrow client for Toggl Track's
-// API v9. There is no method that could start, stop, or modify an existing
-// time entry, which is what guarantees a manually started running timer is
-// never touched by this tool: there's no code path that reaches it. Client
-// and project creation are the one other thing it can do, for auto-
-// provisioning — neither comes near a time entry.
+// API v9. It can start and stop a running timer — for mirroring a Forgejo
+// stopwatch — but StopTimer only ever acts on an entry ID the caller
+// already has, and the only way to get one is from this package's own
+// CreateTimeEntry/StartTimer return values. There is no method that looks
+// up "the currently running entry" or any entry by anything other than an
+// ID the caller already holds, which is what guarantees a timer started by
+// hand in the Toggl app — one this tool never learned the ID of — can
+// never be touched.
 package toggl
 
 import (
@@ -113,6 +116,72 @@ func (c *Client) CreateTimeEntry(ctx context.Context, e NewTimeEntry) (Entry, er
 		return Entry{}, fmt.Errorf("toggl: decoding create-time-entry response: %w", err)
 	}
 	return created, nil
+}
+
+// NewRunningTimer describes a timer to start now — a Forgejo stopwatch
+// starting is the only reason this package ever calls StartTimer, so
+// there's no ProjectID/Tags-optional ambiguity to design around here.
+type NewRunningTimer struct {
+	WorkspaceID int64
+	ProjectID   int64
+	Start       time.Time
+	Description string
+	Tags        []string
+}
+
+// StartTimer starts a running timer. Toggl's convention for "still
+// running" is a duration of -1 rather than a real elapsed time.
+func (c *Client) StartTimer(ctx context.Context, t NewRunningTimer) (Entry, error) {
+	body := map[string]any{
+		"workspace_id": t.WorkspaceID,
+		"project_id":   t.ProjectID,
+		"start":        t.Start.UTC().Format(time.RFC3339),
+		"duration":     -1,
+		"description":  t.Description,
+		"created_with": "forgejo-time-sync",
+	}
+	if len(t.Tags) > 0 {
+		body["tags"] = t.Tags
+	}
+
+	path := fmt.Sprintf("/api/v9/workspaces/%d/time_entries", t.WorkspaceID)
+	resp, err := c.postJSON(ctx, path, body)
+	if err != nil {
+		return Entry{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var created Entry
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		return Entry{}, fmt.Errorf("toggl: decoding start-timer response: %w", err)
+	}
+	return created, nil
+}
+
+// StopTimer finalizes a running timer entryID started earlier by
+// StartTimer, setting its real elapsed duration. entryID must be one this
+// package itself returned — see the package doc for why that's the whole
+// safety property.
+func (c *Client) StopTimer(ctx context.Context, workspaceID, entryID int64, start, stop time.Time) (Entry, error) {
+	body := map[string]any{
+		"workspace_id": workspaceID,
+		"start":        start.UTC().Format(time.RFC3339),
+		"stop":         stop.UTC().Format(time.RFC3339),
+		"duration":     int64(stop.Sub(start).Seconds()),
+	}
+
+	path := fmt.Sprintf("/api/v9/workspaces/%d/time_entries/%d", workspaceID, entryID)
+	resp, err := c.putJSON(ctx, path, body)
+	if err != nil {
+		return Entry{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var updated Entry
+	if err := json.NewDecoder(resp.Body).Decode(&updated); err != nil {
+		return Entry{}, fmt.Errorf("toggl: decoding stop-timer response: %w", err)
+	}
+	return updated, nil
 }
 
 // namedResource is the subset of a Toggl client or project this package
@@ -241,6 +310,16 @@ func (c *Client) postJSON(ctx context.Context, path string, body any) (*http.Res
 func (c *Client) getJSON(ctx context.Context, path string) (*http.Response, error) {
 	return c.doWithRetry(ctx, func(ctx context.Context) (*http.Request, error) {
 		return http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+path, nil)
+	})
+}
+
+func (c *Client) putJSON(ctx context.Context, path string, body any) (*http.Response, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return c.doWithRetry(ctx, func(ctx context.Context) (*http.Request, error) {
+		return http.NewRequestWithContext(ctx, http.MethodPut, c.BaseURL+path, bytes.NewReader(data))
 	})
 }
 

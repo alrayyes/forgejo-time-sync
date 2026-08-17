@@ -258,6 +258,82 @@ func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
 	})
 }
 
+func TestStartTimer(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody map[string]any
+
+	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id": 55, "workspace_id": 1, "project_id": 2}`))
+	})
+
+	start := time.Date(2026, 8, 17, 9, 0, 0, 0, time.UTC)
+	entry, err := c.StartTimer(t.Context(), toggl.NewRunningTimer{
+		WorkspaceID: 1,
+		ProjectID:   2,
+		Start:       start,
+		Description: "d",
+		Tags:        []string{"alrayyes/repo#12"},
+	})
+	require.NoError(t, err)
+
+	t.Run("sends a POST to create a time entry", func(t *testing.T) {
+		require.Equal(t, http.MethodPost, gotMethod)
+		require.Equal(t, "/api/v9/workspaces/1/time_entries", gotPath)
+	})
+
+	t.Run("sends a negative duration, marking it as still running", func(t *testing.T) {
+		require.Equal(t, float64(-1), gotBody["duration"])
+	})
+
+	t.Run("sends the start time and tags", func(t *testing.T) {
+		require.Equal(t, "2026-08-17T09:00:00Z", gotBody["start"])
+		require.Equal(t, []any{"alrayyes/repo#12"}, gotBody["tags"])
+	})
+
+	t.Run("returns the created entry's id, for a later StopTimer call", func(t *testing.T) {
+		require.Equal(t, int64(55), entry.ID)
+	})
+}
+
+func TestStopTimer(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody map[string]any
+
+	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id": 55, "workspace_id": 1, "project_id": 2, "duration": 5400}`))
+	})
+
+	start := time.Date(2026, 8, 17, 9, 0, 0, 0, time.UTC)
+	stop := start.Add(90 * time.Minute)
+	entry, err := c.StopTimer(t.Context(), 1, 55, start, stop)
+	require.NoError(t, err)
+
+	t.Run("sends a PUT to the specific entry it was told to stop", func(t *testing.T) {
+		require.Equal(t, http.MethodPut, gotMethod)
+		require.Equal(t, "/api/v9/workspaces/1/time_entries/55", gotPath)
+	})
+
+	t.Run("sends the exact elapsed duration and stop time, consistent with start", func(t *testing.T) {
+		require.Equal(t, float64(5400), gotBody["duration"])
+		require.Equal(t, "2026-08-17T09:00:00Z", gotBody["start"])
+		require.Equal(t, "2026-08-17T10:30:00Z", gotBody["stop"])
+	})
+
+	t.Run("returns the finalized entry", func(t *testing.T) {
+		require.Equal(t, int64(5400), entry.Duration)
+	})
+}
+
 func TestListRecentEntries(t *testing.T) {
 	var gotPath string
 
