@@ -1,0 +1,11 @@
+services:
+  forgejo-time-sync:
+    build: .
+    image: forgejo-time-sync
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - state:/data
+
+volumes:
+  state:
