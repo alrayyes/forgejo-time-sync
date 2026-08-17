@@ -18,7 +18,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-const prismImage = "stoplight/prism:5.14.2"
+const prismImage = "stoplight/prism:5.14.2@sha256:87972b6cf73da2c0339fca18f362b6f93118152d652c970fab93ed13cfd55bae"
 
 // startPrismMock boots a Prism mock server, loaded with the vendored Toggl
 // OpenAPI spec, and returns its base URL. Every request Prism accepts is a
