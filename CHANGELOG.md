@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.1.0...v1.2.0) (2026-08-17)
+
+
+### Features
+
+* **toggl:** auto-provision a client/project when none is configured ([0b3c064](https://github.com/alrayyes/forgejo-time-sync/commit/0b3c064914c84cf2676a9344babc2d5163af9f85))
+
 # [1.1.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.0.0...v1.1.0) (2026-08-17)
 
 
