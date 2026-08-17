@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.2.0...v1.2.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* **docker:** fix /data volume ownership so state actually persists ([c1f158b](https://github.com/alrayyes/forgejo-time-sync/commit/c1f158bae39963517d4db93862492c6fdb5dcc07))
+
 # [1.2.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.1.0...v1.2.0) (2026-08-17)
 
 
