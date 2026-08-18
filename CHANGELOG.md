@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.0...v1.3.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **toggl:** migrate from Track v9 to the 2.0 (Focus) API ([96b5cdc](https://github.com/alrayyes/forgejo-time-sync/commit/96b5cdc520529182edc489597e6235d50ae7215a))
+
 # [1.3.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.2.1...v1.3.0) (2026-08-17)
 
 
