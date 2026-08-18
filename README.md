@@ -5,8 +5,14 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
 Polls a Forgejo repo's tracked time and pushes any entry that isn't already
-in Toggl Track into it. Packaged as a container you start once and leave
-running — it polls on its own timer, there's nothing to re-invoke.
+in Toggl into it. Packaged as a container you start once and leave running —
+it polls on its own timer, there's nothing to re-invoke.
+
+This targets Toggl's 2.0 (Focus) API, not the older Track v9 API — they're
+separate products with different auth. `TOGGL_API_TOKEN` needs a Focus
+personal API key (`toggl_sk_...`, from your Toggl account settings), not a
+classic Track API token; the two aren't interchangeable and Toggl won't tell
+you which one it got, it'll just 403.
 
 Forgejo has no webhook event for time tracking, so this has to poll rather
 than react.
@@ -23,8 +29,9 @@ in the description text.
 
 That local state — not asking
 Toggl what already exists — is what makes a fast poll interval possible at
-all: Toggl Track's API caps the free tier at 30 requests/hour (see
-[Toggl's rate-limit docs](https://support.toggl.com/api-webhook-limits)), so
+all: Toggl's API caps the free tier at 30 requests/hour, per user, per
+organization (see the rate-limit section of
+[Toggl's Focus API docs](https://engineering.toggl.com/docs/focus/)), so
 re-querying Toggl on every poll would make anything faster than roughly one
 poll every two minutes impossible. Instead, Toggl only ever gets a request
 when there's an actual new Forgejo entry to push, throttled client-side to
@@ -58,7 +65,8 @@ renaming the project in Toggl's UI later doesn't get fought or duplicated.
 
 - A Forgejo instance with an API token that can read the target repo's
   tracked time.
-- A Toggl Track account and an API token. You don't need to create a
+- A Toggl account and a Focus (2.0) API personal key — from your Toggl
+  account settings, starts with `toggl_sk_`. You don't need to create a
   project up front — see above.
 - Docker (or Go 1.26+ and a Docker daemon, if building from source — the
   test suite's container/integration layer needs one either way).
@@ -99,11 +107,16 @@ All configuration is environment variables — see `.env.example`.
 | `FORGEJO_OWNER`               | yes      | —                  |
 | `FORGEJO_REPO`                | yes      | —                  |
 | `TOGGL_API_TOKEN`             | yes      | —                  |
+| `TOGGL_ORGANIZATION_ID`       | yes      | —                  |
 | `TOGGL_WORKSPACE_ID`          | yes      | —                  |
 | `TOGGL_PROJECT_ID`            | no       | auto-provisioned   |
 | `SYNC_INTERVAL_SECONDS`       | no       | `10`               |
 | `STATE_FILE_PATH`             | no       | `/data/state.json` |
 | `TOGGL_MAX_REQUESTS_PER_HOUR` | no       | `30`               |
+
+The Focus API has no "list my organizations" endpoint to derive
+`TOGGL_ORGANIZATION_ID` from, so find both ids by hand in Toggl's own UI —
+organization settings and workspace settings each show their id.
 
 ## Usage
 
@@ -133,8 +146,9 @@ go test -tags e2e ./e2e/... # real Forgejo + a Toggl-spec-mocked Prism container
 ```
 
 The e2e suite doesn't call the real Toggl API — it mocks against Toggl's own
-published OpenAPI spec (vendored in `e2e/testdata/`, refreshed by
-`scripts/vendor-toggl-spec.sh`) via [Prism](https://stoplight.io/open-source/prism),
+published Focus (2.0) API OpenAPI spec (vendored in `e2e/testdata/`,
+refreshed by `scripts/vendor-focus-spec.sh`) via
+[Prism](https://stoplight.io/open-source/prism),
 so requests are validated against Toggl's real contract without CI
 depending on Toggl's uptime or eating into its rate limit on every run. If
 that vendored spec ever drifts far enough from reality to matter, the

@@ -26,7 +26,7 @@ type TogglEntries interface {
 
 // TogglRecentEntries is the one Toggl capability Reconcile needs.
 type TogglRecentEntries interface {
-	ListRecentEntries(ctx context.Context, since time.Time) ([]toggl.Entry, error)
+	ListRecentEntries(ctx context.Context, workspaceID int64, since time.Time) ([]toggl.Entry, error)
 }
 
 // TogglProjects is the one Toggl capability ResolveProject needs.
@@ -105,12 +105,12 @@ func RepoTimes(ctx context.Context, fg ForgejoTimes, tg TogglEntries, st *state.
 // fresh volume, or one that was lost. It's a one-time recovery path, never
 // part of the steady-state poll: without it, losing the state file would
 // cause every already-synced Forgejo entry to be recreated in Toggl.
-func Reconcile(ctx context.Context, tg TogglRecentEntries, st *state.State, since time.Time) error {
+func Reconcile(ctx context.Context, tg TogglRecentEntries, st *state.State, workspaceID int64, since time.Time) error {
 	if st.Len() > 0 {
 		return nil
 	}
 
-	entries, err := tg.ListRecentEntries(ctx, since)
+	entries, err := tg.ListRecentEntries(ctx, workspaceID, since)
 	if err != nil {
 		return fmt.Errorf("reconciling sync state from toggl: %w", err)
 	}

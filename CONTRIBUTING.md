@@ -31,9 +31,9 @@ go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.o
 
 The e2e suite boots a real Forgejo container and a
 [Prism](https://stoplight.io/open-source/prism) mock server loaded with
-Toggl's own vendored OpenAPI spec — see `e2e/testdata/toggl-openapi.json`
-and `scripts/vendor-toggl-spec.sh` for how to refresh it. It does not call
-the real Toggl API.
+Toggl's own vendored Focus (2.0) API OpenAPI spec — see
+`e2e/testdata/focus-openapi.json` and `scripts/vendor-focus-spec.sh` for how
+to refresh it. It does not call the real Toggl API.
 
 ## Linting
 

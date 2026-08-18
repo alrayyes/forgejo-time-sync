@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	togglWorkspaceID = 100
-	togglProjectID   = 200
+	togglOrganizationID = 42
+	togglWorkspaceID    = 100
+	togglProjectID      = 200
 )
 
 func newSyncFixture(t *testing.T, ctx context.Context) (fg *forgejo.Client, fgFixture forgejoFixture, tg *toggl.Client, proxy *recordingProxy, st *state.State) {
@@ -36,13 +37,31 @@ func newSyncFixture(t *testing.T, ctx context.Context) (fg *forgejo.Client, fgFi
 
 	prismURL := startPrismMock(t, ctx)
 	proxy = newRecordingProxy(t, prismURL)
-	tg = toggl.NewClient("test-token", 3600)
+	tg = toggl.NewClient("test-token", togglOrganizationID, 3600)
 	tg.BaseURL = proxy.URL()
 
 	st, err = state.Load(filepath.Join(t.TempDir(), "state.json"))
 	require.NoError(t, err)
 
 	return fg, fgFixture, tg, proxy, st
+}
+
+// timeEntryPath is the one endpoint that can ever create a time entry.
+// Every e2e test checks requests against this exact path (never a
+// PUT/PATCH/DELETE, and never .../time-entries/{id}), which is the
+// running-timer-safety guarantee made concrete: nothing in this tool can
+// start, stop, or modify an existing Toggl entry, because it never sends
+// anything but a POST to this one path.
+const timeEntryPath = "/organizations/42/workspaces/100/time-entries"
+
+func requestsToPath(requests []recordedRequest, path string) []recordedRequest {
+	var matched []recordedRequest
+	for _, r := range requests {
+		if r.Path == path {
+			matched = append(matched, r)
+		}
+	}
+	return matched
 }
 
 func TestSyncPushesForgejoTimeIntoToggl(t *testing.T) {
@@ -62,17 +81,16 @@ func TestSyncPushesForgejoTimeIntoToggl(t *testing.T) {
 		require.Equal(t, 1, st.Len())
 	})
 
-	t.Run("prism validated exactly one request against the real toggl contract", func(t *testing.T) {
-		require.Len(t, proxy.Requests(), 1)
+	t.Run("exactly one time entry request went out, validated against toggl's real contract", func(t *testing.T) {
+		timeEntryRequests := requestsToPath(proxy.Requests(), timeEntryPath)
+		require.Len(t, timeEntryRequests, 1)
+		require.Equal(t, "POST", timeEntryRequests[0].Method)
 	})
 
-	t.Run("the only request made was a POST to create a time entry", func(t *testing.T) {
-		// This is the running-timer-safety guarantee made concrete: nothing
-		// in this tool can start, stop, or modify an existing Toggl entry,
-		// because it never sends anything but this one request shape.
-		req := proxy.Requests()[0]
-		require.Equal(t, "POST", req.Method)
-		require.Equal(t, "/api/v9/workspaces/100/time_entries", req.Path)
+	t.Run("nothing sent could have started, stopped, or modified an existing entry", func(t *testing.T) {
+		for _, req := range proxy.Requests() {
+			require.NotContains(t, []string{"PUT", "PATCH", "DELETE"}, req.Method, "%s %s", req.Method, req.Path)
+		}
 	})
 }
 
@@ -92,8 +110,8 @@ func TestSyncIsIdempotentOnRerun(t *testing.T) {
 		require.Empty(t, created)
 	})
 
-	t.Run("toggl only ever saw one create request across both runs", func(t *testing.T) {
-		require.Len(t, proxy.Requests(), 1)
+	t.Run("toggl only ever saw one time entry created across both runs", func(t *testing.T) {
+		require.Len(t, requestsToPath(proxy.Requests(), timeEntryPath), 1)
 	})
 }
 

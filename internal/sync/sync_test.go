@@ -73,7 +73,7 @@ func (f *fakeToggl) CreateTimeEntry(_ context.Context, e toggl.NewTimeEntry) (to
 	}, nil
 }
 
-func (f *fakeToggl) ListRecentEntries(context.Context, time.Time) ([]toggl.Entry, error) {
+func (f *fakeToggl) ListRecentEntries(context.Context, int64, time.Time) ([]toggl.Entry, error) {
 	return f.recent, f.recentErr
 }
 
@@ -174,7 +174,7 @@ func TestReconcileSeedsStateFromParseableDescriptions(t *testing.T) {
 	}}
 	st := newState(t)
 
-	err := sync.Reconcile(t.Context(), tg, st, time.Now().Add(-24*time.Hour))
+	err := sync.Reconcile(t.Context(), tg, st, 100, time.Now().Add(-24*time.Hour))
 	require.NoError(t, err)
 
 	t.Run("the parseable entry's forgejo id is recorded", func(t *testing.T) {
@@ -193,7 +193,7 @@ func TestReconcileIsANoOpWhenStateIsAlreadyPopulated(t *testing.T) {
 	st := newState(t)
 	require.NoError(t, st.Add(1))
 
-	err := sync.Reconcile(t.Context(), tg, st, time.Now().Add(-24*time.Hour))
+	err := sync.Reconcile(t.Context(), tg, st, 100, time.Now().Add(-24*time.Hour))
 	require.NoError(t, err)
 
 	require.False(t, st.Has(5), "reconcile should only ever seed an empty state, never merge into an existing one")
