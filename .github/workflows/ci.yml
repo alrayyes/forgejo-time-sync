@@ -21,7 +21,11 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+      # Dependabot-triggered runs pull secrets from GitHub's separate
+      # Dependabot secret store, not repo Actions secrets — CODECOV_TOKEN is
+      # never there, and none of these bumps touch coverage anyway.
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        if: github.actor != 'dependabot[bot]'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
