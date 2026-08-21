@@ -1,3 +1,11 @@
+## [1.3.2](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.1...v1.3.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* **ci:** skip codecov upload on dependabot-triggered runs ([#22](https://github.com/alrayyes/forgejo-time-sync/issues/22)) ([53cb040](https://github.com/alrayyes/forgejo-time-sync/commit/53cb0401ec4f5ba3ba0384281c4d6f8df4ebea41))
+* **deps:** bump the go-dependencies group with 2 updates ([#16](https://github.com/alrayyes/forgejo-time-sync/issues/16)) ([7697073](https://github.com/alrayyes/forgejo-time-sync/commit/76970731b18d886c904014ca1600de8b7a0d888b))
+
 ## [1.3.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.0...v1.3.1) (2026-08-18)
 
 
