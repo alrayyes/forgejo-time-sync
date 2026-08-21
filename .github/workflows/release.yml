@@ -23,7 +23,7 @@ jobs:
       # (Contents: read/write) belonging to the repo owner, so this push
       # clears the required-pull-request check the same way a manual push
       # from that account would.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
@@ -46,7 +46,7 @@ jobs:
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: v${{ needs.release.outputs.version }}
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
