@@ -17,9 +17,16 @@ jobs:
       published: ${{ steps.release.outputs.new_release_published }}
       version: ${{ steps.release.outputs.new_release_version }}
     steps:
+      # main is protected and GITHUB_TOKEN pushes as github-actions[bot],
+      # which has no bypass on a personal (non-org) repo — only the repo
+      # admin does. RELEASE_TOKEN is a fine-grained PAT scoped to this repo
+      # (Contents: read/write) belonging to the repo owner, so this push
+      # clears the required-pull-request check the same way a manual push
+      # from that account would.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
       - id: release
         uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
         with:
@@ -28,7 +35,7 @@ jobs:
             @semantic-release/changelog@7.0.0
             @semantic-release/git@11.0.1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
   # A tag release-please/semantic-release pushes with the default
   # GITHUB_TOKEN starts no further workflow, so this stays a job in the
