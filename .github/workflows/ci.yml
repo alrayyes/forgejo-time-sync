@@ -21,6 +21,11 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.out
+          fail_ci_if_error: true
       # Boots real Forgejo + Prism mock containers — see e2e/e2e_test.go.
       # GitHub-hosted runners have a Docker daemon available.
       - run: go test -tags e2e ./e2e/...
