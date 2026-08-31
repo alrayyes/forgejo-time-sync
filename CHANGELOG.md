@@ -1,3 +1,10 @@
+## [1.3.4](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.3...v1.3.4) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deps:** align go toolchain version across go.mod, CI, and docs ([#27](https://github.com/alrayyes/forgejo-time-sync/issues/27)) ([eb815b2](https://github.com/alrayyes/forgejo-time-sync/commit/eb815b218fe499d934630eda45a201dd53bea629))
+
 ## [1.3.3](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.2...v1.3.3) (2026-08-31)
 
 
