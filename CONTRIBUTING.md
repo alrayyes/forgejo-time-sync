@@ -2,7 +2,7 @@
 
 ## Toolchain
 
-- Go 1.26+
+- Go 1.27+
 - Docker, for the container/integration test layer (`testcontainers-go`)
   and for building the image
 - [Bun](https://bun.sh) 1.3.14, for the documentation tooling (Prettier,

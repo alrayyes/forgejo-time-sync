@@ -69,7 +69,7 @@ renaming the project in Toggl's UI later doesn't get fought or duplicated.
 - A Toggl account and a Focus (2.0) API personal key — from your Toggl
   account settings, starts with `toggl_sk_`. You don't need to create a
   project up front — see above.
-- Docker (or Go 1.26+ and a Docker daemon, if building from source — the
+- Docker (or Go 1.27+ and a Docker daemon, if building from source — the
   test suite's container/integration layer needs one either way).
 
 ## Installation

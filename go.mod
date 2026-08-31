@@ -1,6 +1,6 @@
 module github.com/alrayyes/forgejo-time-sync
 
-go 1.26.6
+go 1.27.0
 
 require (
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v3 v3.0.0
