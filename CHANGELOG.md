@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.1...v1.4.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **hooks:** containerize golangci-lint/go lefthook commands ([#32](https://github.com/alrayyes/forgejo-time-sync/issues/32)) ([0f851b4](https://github.com/alrayyes/forgejo-time-sync/commit/0f851b43c2c37c4de2998f023db4615e2fe24727))
+
 ## [1.4.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.0...v1.4.1) (2026-08-31)
 
 
