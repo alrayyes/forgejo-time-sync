@@ -35,11 +35,11 @@ type Client struct {
 func NewClient(baseURL, token string) (*Client, error) {
 	c, err := sdk.NewClient(baseURL, sdk.SetToken(token))
 	if err != nil {
-		var unknownVersion *sdk.ErrUnknownVersion
-		if !errors.As(err, &unknownVersion) {
+		if _, ok := errors.AsType[*sdk.ErrUnknownVersion](err); !ok {
 			return nil, fmt.Errorf("forgejo: connecting to %s: %w", baseURL, err)
 		}
 	}
+
 	return &Client{sdk: c}, nil
 }
 
@@ -48,7 +48,7 @@ func (c *Client) ListRepoTimes(ctx context.Context, owner, repo string) ([]TimeE
 	c.sdk.SetContext(ctx)
 
 	raw, _, err := c.sdk.ListRepoTrackedTimes(owner, repo, sdk.ListTrackedTimesOptions{
-		ListOptions: sdk.ListOptions{Page: -1}, // -1 disables pagination: fetch everything in one call.
+		Page: -1, // -1 disables pagination: fetch everything in one call.
 	})
 	if err != nil {
 		return nil, fmt.Errorf("forgejo: listing tracked times for %s/%s: %w", owner, repo, err)
@@ -61,5 +61,6 @@ func (c *Client) ListRepoTimes(ctx context.Context, owner, repo string) ([]TimeE
 			entries[i].IssueNumber = r.Issue.Index
 		}
 	}
+
 	return entries, nil
 }

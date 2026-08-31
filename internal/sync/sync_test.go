@@ -7,13 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/forgejo"
 	"github.com/alrayyes/forgejo-time-sync/internal/state"
 	"github.com/alrayyes/forgejo-time-sync/internal/sync"
 	"github.com/alrayyes/forgejo-time-sync/internal/toggl"
+	"github.com/stretchr/testify/require"
 )
+
+// errBoom is a stand-in failure for a fake collaborator — the tests below
+// only care that an error propagates, not what it says.
+var errBoom = errors.New("boom")
 
 type fakeForgejo struct {
 	entries []forgejo.TimeEntry
@@ -48,6 +51,7 @@ func (f *fakeToggl) FindOrCreateClient(_ context.Context, _ int64, name string) 
 	if f.findOrCreateErr != nil {
 		return 0, f.findOrCreateErr
 	}
+
 	return f.clientID, nil
 }
 
@@ -56,6 +60,7 @@ func (f *fakeToggl) FindOrCreateProject(_ context.Context, _, clientID int64, na
 	if f.findOrCreateErr != nil {
 		return 0, f.findOrCreateErr
 	}
+
 	return f.projectID, nil
 }
 
@@ -64,6 +69,7 @@ func (f *fakeToggl) CreateTimeEntry(_ context.Context, e toggl.NewTimeEntry) (to
 		return toggl.Entry{}, f.err
 	}
 	f.received = append(f.received, e)
+
 	return toggl.Entry{
 		ID:          int64(len(f.received)),
 		WorkspaceID: e.WorkspaceID,
@@ -81,6 +87,7 @@ func newState(t *testing.T) *state.State {
 	t.Helper()
 	s, err := state.Load(filepath.Join(t.TempDir(), "state.json"))
 	require.NoError(t, err)
+
 	return s
 }
 
@@ -158,7 +165,7 @@ func TestRepoTimesStopsOnTogglError(t *testing.T) {
 	fg := fakeForgejo{entries: []forgejo.TimeEntry{
 		{ID: 1, Created: time.Now(), Seconds: 60, IssueNumber: 1},
 	}}
-	tg := &fakeToggl{err: errors.New("boom")}
+	tg := &fakeToggl{err: errBoom}
 	st := newState(t)
 
 	_, err := sync.RepoTimes(t.Context(), fg, tg, st, "alrayyes", "repo", 100, 200)
@@ -259,7 +266,7 @@ func TestResolveProjectReusesTheCachedIDWithoutTouchingToggl(t *testing.T) {
 }
 
 func TestResolveProjectPropagatesErrors(t *testing.T) {
-	tg := &fakeToggl{findOrCreateErr: errors.New("boom")}
+	tg := &fakeToggl{findOrCreateErr: errBoom}
 	st := newState(t)
 
 	_, err := sync.ResolveProject(t.Context(), tg, st, "alrayyes", "repo", 1, 0)

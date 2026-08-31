@@ -6,9 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/forgejo"
+	"github.com/stretchr/testify/require"
 )
 
 // newTestServer serves the SDK's own version handshake plus whatever
@@ -24,6 +23,7 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
+
 	return srv
 }
 

@@ -5,9 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/state"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadMissingFileStartsEmpty(t *testing.T) {
