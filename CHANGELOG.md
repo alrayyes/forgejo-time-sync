@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.4...v1.4.0) (2026-08-31)
+
+
+### Features
+
+* **cli:** parse the command line with Cobra, load config through Viper ([#30](https://github.com/alrayyes/forgejo-time-sync/issues/30)) ([901d606](https://github.com/alrayyes/forgejo-time-sync/commit/901d606ea92fcfc42340aa8f98ab3e8ba362b540))
+
 ## [1.3.4](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.3...v1.3.4) (2026-08-31)
 
 
