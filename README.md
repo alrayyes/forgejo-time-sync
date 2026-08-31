@@ -79,7 +79,7 @@ Pull the published image — every merge to `main` releases a new version to
 
 ```sh
 mkdir forgejo-time-sync && cd forgejo-time-sync
-curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/compose.yaml
 curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/.env.example
 cp .env.example .env # fill in your Forgejo and Toggl details
 docker run -d --restart unless-stopped \
