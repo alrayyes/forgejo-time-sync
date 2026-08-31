@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.0...v1.4.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **lint:** adopt the canonical .golangci.yml from rules/go-lint.md ([#31](https://github.com/alrayyes/forgejo-time-sync/issues/31)) ([1fa8ab3](https://github.com/alrayyes/forgejo-time-sync/commit/1fa8ab33e1692f14d890e945096a8fdbfed8ff4b))
+
 # [1.4.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.4...v1.4.0) (2026-08-31)
 
 
