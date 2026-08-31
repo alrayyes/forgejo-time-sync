@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/health"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckFailsWhenHeartbeatFileIsMissing(t *testing.T) {

@@ -4,9 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/ratelimit"
+	"github.com/stretchr/testify/require"
 )
 
 // fakeClock lets pacer tests assert on sleep durations without a real clock

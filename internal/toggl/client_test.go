@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/toggl"
+	"github.com/stretchr/testify/require"
 )
 
 // countingWaiter is a fake ratelimit.Pacer: it records how many times Wait
@@ -29,6 +28,7 @@ func newTestClient(t *testing.T, waiter *countingWaiter, handler http.HandlerFun
 
 	c := toggl.NewClientWithPacer("test-token", testOrganizationID, waiter)
 	c.BaseURL = srv.URL
+
 	return c
 }
 
@@ -37,6 +37,7 @@ func newTestClient(t *testing.T, waiter *countingWaiter, handler http.HandlerFun
 // should never resolve any.
 func noTagsHandler(t *testing.T, handler http.HandlerFunc) http.HandlerFunc {
 	t.Helper()
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/workspaces/1/tags" {
 			t.Fatalf("unexpected tag request: %s %s", r.Method, r.URL.Path)
@@ -45,7 +46,19 @@ func noTagsHandler(t *testing.T, handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func TestCreateTimeEntry(t *testing.T) {
+// createTimeEntryResult is what TestCreateTimeEntry's subtests assert
+// against — captured here so the arrange/act step isn't repeated per
+// subtest and doesn't count against any one test function's own length.
+type createTimeEntryResult struct {
+	method, path, auth string
+	body               map[string]any
+	entry              toggl.Entry
+	waiter             *countingWaiter
+}
+
+func createTimeEntry(t *testing.T) createTimeEntryResult {
+	t.Helper()
+
 	var gotMethod, gotPath, gotAuth string
 	var gotBody map[string]any
 
@@ -78,44 +91,53 @@ func TestCreateTimeEntry(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	return createTimeEntryResult{
+		method: gotMethod, path: gotPath, auth: gotAuth, body: gotBody,
+		entry: entry, waiter: waiter,
+	}
+}
+
+func TestCreateTimeEntry(t *testing.T) {
+	r := createTimeEntry(t)
+
 	t.Run("sends a POST", func(t *testing.T) {
-		require.Equal(t, http.MethodPost, gotMethod)
+		require.Equal(t, http.MethodPost, r.method)
 	})
 
 	t.Run("hits the organization/workspace time-entries endpoint", func(t *testing.T) {
-		require.Equal(t, "/organizations/42/workspaces/1/time-entries", gotPath)
+		require.Equal(t, "/organizations/42/workspaces/1/time-entries", r.path)
 	})
 
 	t.Run("authenticates with a bearer token", func(t *testing.T) {
-		require.Equal(t, "Bearer test-token", gotAuth)
+		require.Equal(t, "Bearer test-token", r.auth)
 	})
 
 	t.Run("marks it as a taskless activity entry", func(t *testing.T) {
-		require.Equal(t, "activity", gotBody["type"])
+		require.Equal(t, "activity", r.body["type"])
 	})
 
 	t.Run("sends the project id", func(t *testing.T) {
-		require.Equal(t, float64(2), gotBody["project_id"])
+		require.InDelta(t, float64(2), r.body["project_id"], 0)
 	})
 
 	t.Run("sends the exact duration in seconds, with no rounding", func(t *testing.T) {
-		require.Equal(t, float64(5400), gotBody["duration"])
+		require.InDelta(t, float64(5400), r.body["duration"], 0)
 	})
 
 	t.Run("passes the description through unchanged", func(t *testing.T) {
-		require.Equal(t, "forgejo-time-entry:1 issue:alrayyes/repo#12", gotBody["description"])
+		require.Equal(t, "forgejo-time-entry:1 issue:alrayyes/repo#12", r.body["description"])
 	})
 
 	t.Run("resolves the issue reference to a tag id, not a tag name", func(t *testing.T) {
-		require.Equal(t, []any{float64(3)}, gotBody["tag_ids"])
+		require.Equal(t, []any{float64(3)}, r.body["tag_ids"])
 	})
 
 	t.Run("paces itself before every request, including the tag lookup", func(t *testing.T) {
-		require.Equal(t, 2, waiter.calls)
+		require.Equal(t, 2, r.waiter.calls)
 	})
 
 	t.Run("returns the created entry's id", func(t *testing.T) {
-		require.Equal(t, int64(99), entry.ID)
+		require.Equal(t, int64(99), r.entry.ID)
 	})
 }
 
@@ -168,6 +190,7 @@ func TestCreateTimeEntryRetriesOn402ThenSucceeds(t *testing.T) {
 		attempts++
 		if attempts < 3 {
 			w.WriteHeader(http.StatusPaymentRequired)
+
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -231,6 +254,7 @@ func TestFindOrCreateClientCreatesWhenNoneMatch(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"data": [], "page": 1, "per_page": 50}`))
+
 			return
 		}
 		gotMethod = r.Method
@@ -290,6 +314,7 @@ func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"data": [], "page": 1, "per_page": 50, "total": 0}`))
+
 			return
 		}
 		gotPath = r.URL.Path
@@ -307,7 +332,7 @@ func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
 	t.Run("creates it under the organization/workspace scope and the given client", func(t *testing.T) {
 		require.Equal(t, "/organizations/42/workspaces/1/projects", gotPath)
 		require.Equal(t, "repo", gotBody["name"])
-		require.Equal(t, float64(7), gotBody["client_id"])
+		require.InDelta(t, float64(7), gotBody["client_id"], 0)
 	})
 }
 

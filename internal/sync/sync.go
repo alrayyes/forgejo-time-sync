@@ -64,6 +64,7 @@ func ResolveProject(ctx context.Context, tg TogglProjects, st *state.State, owne
 	if err := st.SetProjectID(projectID); err != nil {
 		return 0, fmt.Errorf("caching resolved toggl project id: %w", err)
 	}
+
 	return projectID, nil
 }
 
@@ -98,6 +99,7 @@ func RepoTimes(ctx context.Context, fg ForgejoTimes, tg TogglEntries, st *state.
 		}
 		created = append(created, entry)
 	}
+
 	return created, nil
 }
 
@@ -124,6 +126,7 @@ func Reconcile(ctx context.Context, tg TogglRecentEntries, st *state.State, work
 			return fmt.Errorf("recording reconciled entry %d: %w", id, err)
 		}
 	}
+
 	return nil
 }
 
@@ -148,5 +151,6 @@ func parseSyncedID(description string) (int64, bool) {
 	if err != nil {
 		return 0, false
 	}
+
 	return id, true
 }

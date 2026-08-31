@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -69,7 +70,7 @@ func newHealthcheckCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := config.Load(config.New())
 			if err != nil {
-				return err
+				return fmt.Errorf("loading config: %w", err)
 			}
 			hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
 
@@ -94,17 +95,17 @@ func heartbeatMaxAge(interval time.Duration) time.Duration {
 func run(ctx context.Context, logger *slog.Logger) error {
 	cfg, err := config.Load(config.New())
 	if err != nil {
-		return err
+		return fmt.Errorf("loading config: %w", err)
 	}
 
 	st, err := state.Load(cfg.StateFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading state: %w", err)
 	}
 
 	fg, err := forgejo.NewClient(cfg.ForgejoBaseURL, cfg.ForgejoToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("connecting to forgejo: %w", err)
 	}
 	tg := toggl.NewClient(cfg.TogglAPIToken, cfg.TogglOrganizationID, cfg.TogglMaxRequestsPerHour)
 
@@ -135,7 +136,7 @@ func resolveAndReconcile(ctx context.Context, logger *slog.Logger, tg *toggl.Cli
 
 	projectID, err := sync.ResolveProject(ctx, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, cfg.TogglProjectID)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("resolving toggl project: %w", err)
 	}
 	if !projectAlreadyResolved {
 		logger.Info("auto-provisioned toggl client/project", "toggl_project_id", projectID)

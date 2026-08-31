@@ -13,12 +13,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/forgejo"
 	"github.com/alrayyes/forgejo-time-sync/internal/state"
 	"github.com/alrayyes/forgejo-time-sync/internal/sync"
 	"github.com/alrayyes/forgejo-time-sync/internal/toggl"
+	"github.com/stretchr/testify/require"
 )
 
 const (
