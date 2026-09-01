@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.2...v1.4.3) (2026-09-01)
+
+
+### Bug Fixes
+
+* **deps:** bump distroless/static-debian12 from `1b7b9f0` to `afa5c87` ([#23](https://github.com/alrayyes/forgejo-time-sync/issues/23)) ([c2316e3](https://github.com/alrayyes/forgejo-time-sync/commit/c2316e37efdff3ef39edc2158c2912607138e400))
+
 ## [1.4.2](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.1...v1.4.2) (2026-08-31)
 
 
