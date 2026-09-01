@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,11 @@ const (
 	// it has no effect on this tool's behavior, only on how the tag looks
 	// in Toggl's UI.
 	defaultTagColor = "#4A90D9"
+)
+
+var (
+	errUnexpectedStatus = errors.New("toggl: unexpected status")
+	errStillRateLimited = errors.New("toggl: still rate limited")
 )
 
 // waiter is the one method this package needs from ratelimit.Pacer, defined
@@ -64,6 +70,7 @@ func NewClient(apiToken string, organizationID int64, maxRequestsPerHour int) *C
 	if maxRequestsPerHour <= 0 {
 		maxRequestsPerHour = 30
 	}
+
 	return NewClientWithPacer(apiToken, organizationID, ratelimit.New(time.Hour/time.Duration(maxRequestsPerHour)))
 }
 
@@ -124,6 +131,7 @@ func (c *Client) CreateTimeEntry(ctx context.Context, e NewTimeEntry) (Entry, er
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		return Entry{}, fmt.Errorf("toggl: decoding create-time-entry response: %w", err)
 	}
+
 	return created, nil
 }
 
@@ -142,6 +150,7 @@ func (c *Client) resolveTagIDs(ctx context.Context, workspaceID int64, names []s
 		}
 		ids = append(ids, id)
 	}
+
 	return ids, nil
 }
 
@@ -163,6 +172,7 @@ func (c *Client) findOrCreateTagID(ctx context.Context, workspaceID int64, name 
 	if err != nil {
 		return 0, fmt.Errorf("creating tag: %w", err)
 	}
+
 	return created.ID, nil
 }
 
@@ -200,6 +210,7 @@ func (c *Client) FindOrCreateClient(ctx context.Context, workspaceID int64, name
 	if err != nil {
 		return 0, fmt.Errorf("toggl: creating client %q: %w", name, err)
 	}
+
 	return created.ID, nil
 }
 
@@ -223,6 +234,7 @@ func (c *Client) FindOrCreateProject(ctx context.Context, workspaceID, clientID 
 	if err != nil {
 		return 0, fmt.Errorf("toggl: creating project %q: %w", name, err)
 	}
+
 	return created.ID, nil
 }
 
@@ -237,6 +249,7 @@ func (c *Client) listNamedResources(ctx context.Context, path string) ([]namedRe
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
+
 	return page.Data, nil
 }
 
@@ -251,6 +264,7 @@ func (c *Client) createNamedResource(ctx context.Context, path string, body map[
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		return namedResource{}, fmt.Errorf("decoding response: %w", err)
 	}
+
 	return created, nil
 }
 
@@ -280,14 +294,16 @@ func (c *Client) ListRecentEntries(ctx context.Context, workspaceID int64, since
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		return nil, fmt.Errorf("toggl: decoding time entries response: %w", err)
 	}
+
 	return page.Data, nil
 }
 
 func (c *Client) postJSON(ctx context.Context, path string, body any) (*http.Response, error) {
 	data, err := json.Marshal(body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("toggl: encoding request body: %w", err)
 	}
+
 	return c.doWithRetry(ctx, func(ctx context.Context) (*http.Request, error) {
 		return http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+path, bytes.NewReader(data))
 	})
@@ -309,7 +325,7 @@ func (c *Client) doWithRetry(ctx context.Context, buildRequest func(context.Cont
 	}
 
 	var lastStatus string
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for range maxRetries {
 		c.pacer.Wait()
 
 		req, err := buildRequest(ctx)
@@ -321,20 +337,24 @@ func (c *Client) doWithRetry(ctx context.Context, buildRequest func(context.Cont
 
 		resp, err := httpClient.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("toggl: %s %s: %w", req.Method, req.URL.Path, err)
 		}
 
 		if resp.StatusCode == http.StatusPaymentRequired {
 			lastStatus = resp.Status
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
+
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			defer func() { _ = resp.Body.Close() }()
-			return nil, fmt.Errorf("toggl: %s %s: unexpected status %s", req.Method, req.URL.Path, resp.Status)
+
+			return nil, fmt.Errorf("%w: %s %s: %s", errUnexpectedStatus, req.Method, req.URL.Path, resp.Status)
 		}
+
 		return resp, nil
 	}
-	return nil, fmt.Errorf("toggl: still rate limited after %d attempts (last status %s)", maxRetries, lastStatus)
+
+	return nil, fmt.Errorf("%w: after %d attempts (last status %s)", errStillRateLimited, maxRetries, lastStatus)
 }

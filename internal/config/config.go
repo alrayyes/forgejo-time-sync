@@ -2,9 +2,12 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 // Config is the fully resolved, validated set of settings this tool needs
@@ -38,68 +41,92 @@ const (
 	defaultTogglMaxRequestsPerHour = 30
 )
 
-// Load reads Config from environment variables via getenv (os.Getenv in
-// production; a fake map in tests).
-func Load(getenv func(string) string) (Config, error) {
-	var cfg Config
+var requiredKeys = []string{
+	"FORGEJO_BASE_URL", "FORGEJO_TOKEN", "FORGEJO_OWNER", "FORGEJO_REPO",
+	"TOGGL_API_TOKEN", "TOGGL_ORGANIZATION_ID", "TOGGL_WORKSPACE_ID",
+}
+
+// New returns a Viper instance layered over this tool's environment
+// variables, with defaults for every optional setting. There is no config
+// file layer: this tool is a Docker-only daemon with nothing for a user to
+// persist, so env vars are the only real source — Viper here is purely the
+// resolution/precedence and validation mechanism rules/go.md's Configuration
+// section asks for.
+func New() *viper.Viper {
+	v := viper.New()
+	v.AutomaticEnv()
+	v.SetDefault("SYNC_INTERVAL_SECONDS", defaultSyncIntervalSeconds)
+	v.SetDefault("STATE_FILE_PATH", defaultStateFilePath)
+	v.SetDefault("TOGGL_MAX_REQUESTS_PER_HOUR", defaultTogglMaxRequestsPerHour)
+
+	return v
+}
+
+// Load resolves Config from v, then validates it. v is New() in production;
+// a test builds its own with viper.New() plus v.Set(key, value) so tests
+// need no real environment variables and stay parallel-safe.
+func Load(v *viper.Viper) (Config, error) {
 	var missing []string
 
-	required := func(key string) string {
-		v := getenv(key)
-		if v == "" {
+	for _, key := range requiredKeys {
+		if v.GetString(key) == "" {
 			missing = append(missing, key)
 		}
-		return v
 	}
-
-	cfg.ForgejoBaseURL = required("FORGEJO_BASE_URL")
-	cfg.ForgejoToken = required("FORGEJO_TOKEN")
-	cfg.ForgejoOwner = required("FORGEJO_OWNER")
-	cfg.ForgejoRepo = required("FORGEJO_REPO")
-	cfg.TogglAPIToken = required("TOGGL_API_TOKEN")
-	organizationID := required("TOGGL_ORGANIZATION_ID")
-	workspaceID := required("TOGGL_WORKSPACE_ID")
 
 	if len(missing) > 0 {
-		return Config{}, fmt.Errorf("config: missing required environment variables: %v", missing)
+		return Config{}, fmt.Errorf("%w: %v", errMissingRequiredVars, missing)
 	}
 
-	var err error
-	if cfg.TogglOrganizationID, err = strconv.ParseInt(organizationID, 10, 64); err != nil {
-		return Config{}, fmt.Errorf("config: TOGGL_ORGANIZATION_ID: %w", err)
-	}
-	if cfg.TogglWorkspaceID, err = strconv.ParseInt(workspaceID, 10, 64); err != nil {
-		return Config{}, fmt.Errorf("config: TOGGL_WORKSPACE_ID: %w", err)
-	}
-
-	if v := getenv("TOGGL_PROJECT_ID"); v != "" {
-		if cfg.TogglProjectID, err = strconv.ParseInt(v, 10, 64); err != nil {
-			return Config{}, fmt.Errorf("config: TOGGL_PROJECT_ID: %w", err)
-		}
+	cfg := Config{
+		ForgejoBaseURL: v.GetString("FORGEJO_BASE_URL"),
+		ForgejoToken:   v.GetString("FORGEJO_TOKEN"),
+		ForgejoOwner:   v.GetString("FORGEJO_OWNER"),
+		ForgejoRepo:    v.GetString("FORGEJO_REPO"),
+		TogglAPIToken:  v.GetString("TOGGL_API_TOKEN"),
+		StateFilePath:  v.GetString("STATE_FILE_PATH"),
 	}
 
-	cfg.SyncInterval = defaultSyncIntervalSeconds * time.Second
-	if v := getenv("SYNC_INTERVAL_SECONDS"); v != "" {
-		seconds, err := strconv.Atoi(v)
-		if err != nil {
-			return Config{}, fmt.Errorf("config: SYNC_INTERVAL_SECONDS: %w", err)
-		}
-		cfg.SyncInterval = time.Duration(seconds) * time.Second
-	}
-
-	cfg.StateFilePath = defaultStateFilePath
-	if v := getenv("STATE_FILE_PATH"); v != "" {
-		cfg.StateFilePath = v
-	}
-
-	cfg.TogglMaxRequestsPerHour = defaultTogglMaxRequestsPerHour
-	if v := getenv("TOGGL_MAX_REQUESTS_PER_HOUR"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil {
-			return Config{}, fmt.Errorf("config: TOGGL_MAX_REQUESTS_PER_HOUR: %w", err)
-		}
-		cfg.TogglMaxRequestsPerHour = n
+	if err := cfg.parseNumeric(v); err != nil {
+		return Config{}, err
 	}
 
 	return cfg, nil
+}
+
+var (
+	errMissingRequiredVars = errors.New("config: missing required environment variables")
+	errInvalidValue        = errors.New("config: invalid value")
+)
+
+// parseNumeric fills in every field parsed from a numeric string. Viper's
+// own GetInt64/GetInt cast a non-numeric string to zero rather than
+// erroring, so — per rules/go.md's "config from the environment can lie,
+// validate it as it loads" — these are parsed by hand instead.
+func (cfg *Config) parseNumeric(v *viper.Viper) error {
+	var err error
+
+	if cfg.TogglOrganizationID, err = strconv.ParseInt(v.GetString("TOGGL_ORGANIZATION_ID"), 10, 64); err != nil {
+		return fmt.Errorf("%w: TOGGL_ORGANIZATION_ID: %w", errInvalidValue, err)
+	}
+	if cfg.TogglWorkspaceID, err = strconv.ParseInt(v.GetString("TOGGL_WORKSPACE_ID"), 10, 64); err != nil {
+		return fmt.Errorf("%w: TOGGL_WORKSPACE_ID: %w", errInvalidValue, err)
+	}
+	if s := v.GetString("TOGGL_PROJECT_ID"); s != "" {
+		if cfg.TogglProjectID, err = strconv.ParseInt(s, 10, 64); err != nil {
+			return fmt.Errorf("%w: TOGGL_PROJECT_ID: %w", errInvalidValue, err)
+		}
+	}
+
+	seconds, err := strconv.Atoi(v.GetString("SYNC_INTERVAL_SECONDS"))
+	if err != nil {
+		return fmt.Errorf("%w: SYNC_INTERVAL_SECONDS: %w", errInvalidValue, err)
+	}
+	cfg.SyncInterval = time.Duration(seconds) * time.Second
+
+	if cfg.TogglMaxRequestsPerHour, err = strconv.Atoi(v.GetString("TOGGL_MAX_REQUESTS_PER_HOUR")); err != nil {
+		return fmt.Errorf("%w: TOGGL_MAX_REQUESTS_PER_HOUR: %w", errInvalidValue, err)
+	}
+
+	return nil
 }

@@ -1,3 +1,39 @@
+## [1.4.2](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.1...v1.4.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **hooks:** containerize golangci-lint/go lefthook commands ([#32](https://github.com/alrayyes/forgejo-time-sync/issues/32)) ([0f851b4](https://github.com/alrayyes/forgejo-time-sync/commit/0f851b43c2c37c4de2998f023db4615e2fe24727))
+
+## [1.4.1](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.0...v1.4.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **lint:** adopt the canonical .golangci.yml from rules/go-lint.md ([#31](https://github.com/alrayyes/forgejo-time-sync/issues/31)) ([1fa8ab3](https://github.com/alrayyes/forgejo-time-sync/commit/1fa8ab33e1692f14d890e945096a8fdbfed8ff4b))
+
+# [1.4.0](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.4...v1.4.0) (2026-08-31)
+
+
+### Features
+
+* **cli:** parse the command line with Cobra, load config through Viper ([#30](https://github.com/alrayyes/forgejo-time-sync/issues/30)) ([901d606](https://github.com/alrayyes/forgejo-time-sync/commit/901d606ea92fcfc42340aa8f98ab3e8ba362b540))
+
+## [1.3.4](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.3...v1.3.4) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deps:** align go toolchain version across go.mod, CI, and docs ([#27](https://github.com/alrayyes/forgejo-time-sync/issues/27)) ([eb815b2](https://github.com/alrayyes/forgejo-time-sync/commit/eb815b218fe499d934630eda45a201dd53bea629))
+
+## [1.3.3](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.2...v1.3.3) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deps:** bump golang from `65b6f28` to `4013ae0` ([#26](https://github.com/alrayyes/forgejo-time-sync/issues/26)) ([07e8a2f](https://github.com/alrayyes/forgejo-time-sync/commit/07e8a2f334fb007a0f745bb1b4b26798f6acee3e))
+* **deps:** bump golang from 1.26.6 to 1.27.0 ([#24](https://github.com/alrayyes/forgejo-time-sync/issues/24)) ([86c4d5a](https://github.com/alrayyes/forgejo-time-sync/commit/86c4d5a0d359d1c0731b27be5bea94c10483e160))
+
 ## [1.3.2](https://github.com/alrayyes/forgejo-time-sync/compare/v1.3.1...v1.3.2) (2026-08-21)
 
 

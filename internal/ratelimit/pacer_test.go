@@ -4,9 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/ratelimit"
+	"github.com/stretchr/testify/require"
 )
 
 // fakeClock lets pacer tests assert on sleep durations without a real clock
@@ -26,7 +25,11 @@ func (f *fakeClock) Sleep(d time.Duration) {
 }
 
 func TestWait(t *testing.T) {
+	t.Parallel()
+
 	t.Run("does not sleep on the very first call", func(t *testing.T) {
+		t.Parallel()
+
 		clock := &fakeClock{now: time.Now()}
 		p := ratelimit.NewWithClock(time.Minute, clock.Now, clock.Sleep)
 
@@ -36,6 +39,8 @@ func TestWait(t *testing.T) {
 	})
 
 	t.Run("sleeps for the full interval when called again immediately", func(t *testing.T) {
+		t.Parallel()
+
 		clock := &fakeClock{now: time.Now()}
 		p := ratelimit.NewWithClock(time.Minute, clock.Now, clock.Sleep)
 		p.Wait()
@@ -46,6 +51,8 @@ func TestWait(t *testing.T) {
 	})
 
 	t.Run("does not sleep if the interval already elapsed", func(t *testing.T) {
+		t.Parallel()
+
 		clock := &fakeClock{now: time.Now()}
 		p := ratelimit.NewWithClock(time.Minute, clock.Now, clock.Sleep)
 		p.Wait()
@@ -57,6 +64,8 @@ func TestWait(t *testing.T) {
 	})
 
 	t.Run("sleeps only for the remaining time when partially elapsed", func(t *testing.T) {
+		t.Parallel()
+
 		clock := &fakeClock{now: time.Now()}
 		p := ratelimit.NewWithClock(time.Minute, clock.Now, clock.Sleep)
 		p.Wait()

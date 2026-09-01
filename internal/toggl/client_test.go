@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/toggl"
+	"github.com/stretchr/testify/require"
 )
 
 // countingWaiter is a fake ratelimit.Pacer: it records how many times Wait
@@ -29,6 +28,7 @@ func newTestClient(t *testing.T, waiter *countingWaiter, handler http.HandlerFun
 
 	c := toggl.NewClientWithPacer("test-token", testOrganizationID, waiter)
 	c.BaseURL = srv.URL
+
 	return c
 }
 
@@ -37,6 +37,7 @@ func newTestClient(t *testing.T, waiter *countingWaiter, handler http.HandlerFun
 // should never resolve any.
 func noTagsHandler(t *testing.T, handler http.HandlerFunc) http.HandlerFunc {
 	t.Helper()
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/workspaces/1/tags" {
 			t.Fatalf("unexpected tag request: %s %s", r.Method, r.URL.Path)
@@ -45,7 +46,19 @@ func noTagsHandler(t *testing.T, handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func TestCreateTimeEntry(t *testing.T) {
+// createTimeEntryResult is what TestCreateTimeEntry's subtests assert
+// against — captured here so the arrange/act step isn't repeated per
+// subtest and doesn't count against any one test function's own length.
+type createTimeEntryResult struct {
+	method, path, auth string
+	body               map[string]any
+	entry              toggl.Entry
+	waiter             *countingWaiter
+}
+
+func createTimeEntry(t *testing.T) createTimeEntryResult {
+	t.Helper()
+
 	var gotMethod, gotPath, gotAuth string
 	var gotBody map[string]any
 
@@ -78,48 +91,75 @@ func TestCreateTimeEntry(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	return createTimeEntryResult{
+		method: gotMethod, path: gotPath, auth: gotAuth, body: gotBody,
+		entry: entry, waiter: waiter,
+	}
+}
+
+func TestCreateTimeEntry(t *testing.T) {
+	t.Parallel()
+
+	r := createTimeEntry(t)
+
 	t.Run("sends a POST", func(t *testing.T) {
-		require.Equal(t, http.MethodPost, gotMethod)
+		t.Parallel()
+
+		require.Equal(t, http.MethodPost, r.method)
 	})
 
 	t.Run("hits the organization/workspace time-entries endpoint", func(t *testing.T) {
-		require.Equal(t, "/organizations/42/workspaces/1/time-entries", gotPath)
+		t.Parallel()
+
+		require.Equal(t, "/organizations/42/workspaces/1/time-entries", r.path)
 	})
 
 	t.Run("authenticates with a bearer token", func(t *testing.T) {
-		require.Equal(t, "Bearer test-token", gotAuth)
+		t.Parallel()
+
+		require.Equal(t, "Bearer test-token", r.auth)
 	})
 
 	t.Run("marks it as a taskless activity entry", func(t *testing.T) {
-		require.Equal(t, "activity", gotBody["type"])
+		t.Parallel()
+
+		require.Equal(t, "activity", r.body["type"])
 	})
 
 	t.Run("sends the project id", func(t *testing.T) {
-		require.Equal(t, float64(2), gotBody["project_id"])
+		t.Parallel()
+
+		require.InDelta(t, float64(2), r.body["project_id"], 0)
 	})
 
 	t.Run("sends the exact duration in seconds, with no rounding", func(t *testing.T) {
-		require.Equal(t, float64(5400), gotBody["duration"])
+		require.InDelta(t, float64(5400), r.body["duration"], 0)
 	})
 
 	t.Run("passes the description through unchanged", func(t *testing.T) {
-		require.Equal(t, "forgejo-time-entry:1 issue:alrayyes/repo#12", gotBody["description"])
+		t.Parallel()
+
+		require.Equal(t, "forgejo-time-entry:1 issue:alrayyes/repo#12", r.body["description"])
 	})
 
 	t.Run("resolves the issue reference to a tag id, not a tag name", func(t *testing.T) {
-		require.Equal(t, []any{float64(3)}, gotBody["tag_ids"])
+		require.Equal(t, []any{float64(3)}, r.body["tag_ids"])
 	})
 
 	t.Run("paces itself before every request, including the tag lookup", func(t *testing.T) {
-		require.Equal(t, 2, waiter.calls)
+		require.Equal(t, 2, r.waiter.calls)
 	})
 
 	t.Run("returns the created entry's id", func(t *testing.T) {
-		require.Equal(t, int64(99), entry.ID)
+		t.Parallel()
+
+		require.Equal(t, int64(99), r.entry.ID)
 	})
 }
 
 func TestCreateTimeEntryCreatesAMissingTag(t *testing.T) {
+	t.Parallel()
+
 	var gotTagBody map[string]any
 
 	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
@@ -152,6 +192,8 @@ func TestCreateTimeEntryCreatesAMissingTag(t *testing.T) {
 }
 
 func TestCreateTimeEntryPropagatesHardErrors(t *testing.T) {
+	t.Parallel()
+
 	c := newTestClient(t, &countingWaiter{}, noTagsHandler(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 	}))
@@ -162,12 +204,15 @@ func TestCreateTimeEntryPropagatesHardErrors(t *testing.T) {
 }
 
 func TestCreateTimeEntryRetriesOn402ThenSucceeds(t *testing.T) {
+	t.Parallel()
+
 	attempts := 0
 	waiter := &countingWaiter{}
 	c := newTestClient(t, waiter, noTagsHandler(t, func(w http.ResponseWriter, _ *http.Request) {
 		attempts++
 		if attempts < 3 {
 			w.WriteHeader(http.StatusPaymentRequired)
+
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -178,10 +223,14 @@ func TestCreateTimeEntryRetriesOn402ThenSucceeds(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("eventually returns the entry created on the successful attempt", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, int64(1), entry.ID)
 	})
 
 	t.Run("retries until the rate limit clears", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, 3, attempts)
 	})
 
@@ -191,6 +240,8 @@ func TestCreateTimeEntryRetriesOn402ThenSucceeds(t *testing.T) {
 }
 
 func TestCreateTimeEntryGivesUpAfterRepeated402(t *testing.T) {
+	t.Parallel()
+
 	c := newTestClient(t, &countingWaiter{}, noTagsHandler(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusPaymentRequired)
 	}))
@@ -201,6 +252,8 @@ func TestCreateTimeEntryGivesUpAfterRepeated402(t *testing.T) {
 }
 
 func TestFindOrCreateClientFindsAnExistingClientByName(t *testing.T) {
+	t.Parallel()
+
 	var postCount int
 
 	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
@@ -215,15 +268,21 @@ func TestFindOrCreateClientFindsAnExistingClientByName(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("returns the matching client's id", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, int64(7), id)
 	})
 
 	t.Run("never creates a duplicate", func(t *testing.T) {
+		t.Parallel()
+
 		require.Zero(t, postCount)
 	})
 }
 
 func TestFindOrCreateClientCreatesWhenNoneMatch(t *testing.T) {
+	t.Parallel()
+
 	var gotMethod, gotPath string
 	var gotBody map[string]any
 
@@ -231,6 +290,7 @@ func TestFindOrCreateClientCreatesWhenNoneMatch(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"data": [], "page": 1, "per_page": 50}`))
+
 			return
 		}
 		gotMethod = r.Method
@@ -243,6 +303,8 @@ func TestFindOrCreateClientCreatesWhenNoneMatch(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("returns the newly created client's id", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, int64(9), id)
 	})
 
@@ -252,11 +314,15 @@ func TestFindOrCreateClientCreatesWhenNoneMatch(t *testing.T) {
 	})
 
 	t.Run("sends the requested name", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, "alrayyes", gotBody["name"])
 	})
 }
 
 func TestFindOrCreateProjectFindsAnExistingProjectByNameAndClient(t *testing.T) {
+	t.Parallel()
+
 	var postCount int
 
 	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
@@ -274,15 +340,21 @@ func TestFindOrCreateProjectFindsAnExistingProjectByNameAndClient(t *testing.T) 
 	require.NoError(t, err)
 
 	t.Run("returns the project matching both name and client", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, int64(21), id)
 	})
 
 	t.Run("never creates a duplicate", func(t *testing.T) {
+		t.Parallel()
+
 		require.Zero(t, postCount)
 	})
 }
 
 func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
+	t.Parallel()
+
 	var gotPath string
 	var gotBody map[string]any
 
@@ -290,6 +362,7 @@ func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"data": [], "page": 1, "per_page": 50, "total": 0}`))
+
 			return
 		}
 		gotPath = r.URL.Path
@@ -301,17 +374,23 @@ func TestFindOrCreateProjectCreatesWhenNoneMatch(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("returns the newly created project's id", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, int64(22), id)
 	})
 
 	t.Run("creates it under the organization/workspace scope and the given client", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, "/organizations/42/workspaces/1/projects", gotPath)
 		require.Equal(t, "repo", gotBody["name"])
-		require.Equal(t, float64(7), gotBody["client_id"])
+		require.InDelta(t, float64(7), gotBody["client_id"], 0)
 	})
 }
 
 func TestListRecentEntries(t *testing.T) {
+	t.Parallel()
+
 	var gotPath string
 
 	c := newTestClient(t, &countingWaiter{}, func(w http.ResponseWriter, r *http.Request) {
@@ -328,10 +407,14 @@ func TestListRecentEntries(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("hits the organization/workspace time-entries endpoint", func(t *testing.T) {
+		t.Parallel()
+
 		require.Contains(t, gotPath, "/organizations/42/workspaces/1/time-entries?")
 	})
 
 	t.Run("scopes the lookup to entries since the given time", func(t *testing.T) {
+		t.Parallel()
+
 		require.Contains(t, gotPath, "date_from=2026-08-01T00%3A00%3A00Z")
 	})
 
@@ -340,6 +423,8 @@ func TestListRecentEntries(t *testing.T) {
 	})
 
 	t.Run("returns every entry the server sent", func(t *testing.T) {
+		t.Parallel()
+
 		require.Len(t, entries, 2)
 	})
 }

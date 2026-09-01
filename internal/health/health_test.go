@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/health"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckFailsWhenHeartbeatFileIsMissing(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "healthcheck")
 	hb := health.NewHeartbeat(path)
 
@@ -20,6 +21,8 @@ func TestCheckFailsWhenHeartbeatFileIsMissing(t *testing.T) {
 }
 
 func TestCheckSucceedsRightAfterTouch(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "healthcheck")
 	hb := health.NewHeartbeat(path)
 	require.NoError(t, hb.Touch())
@@ -30,6 +33,8 @@ func TestCheckSucceedsRightAfterTouch(t *testing.T) {
 }
 
 func TestCheckFailsWhenHeartbeatIsStale(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "healthcheck")
 	hb := health.NewHeartbeat(path)
 	require.NoError(t, hb.Touch())
@@ -40,6 +45,8 @@ func TestCheckFailsWhenHeartbeatIsStale(t *testing.T) {
 }
 
 func TestTouchCanBeCalledRepeatedly(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "healthcheck")
 	hb := health.NewHeartbeat(path)
 

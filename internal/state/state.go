@@ -7,6 +7,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -32,22 +33,23 @@ type fileFormat struct {
 func Load(path string) (*State, error) {
 	s := &State{path: path, ids: make(map[int64]struct{})}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path is operator-provided config (STATE_FILE_PATH), not untrusted input
 	if os.IsNotExist(err) {
 		return s, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("state: reading %s: %w", path, err)
 	}
 
 	var f fileFormat
 	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("state: parsing %s: %w", path, err)
 	}
 	for _, id := range f.IDs {
 		s.ids[id] = struct{}{}
 	}
 	s.projectID = f.ProjectID
+
 	return s, nil
 }
 
@@ -56,6 +58,7 @@ func (s *State) Has(id int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, ok := s.ids[id]
+
 	return ok
 }
 
@@ -63,6 +66,7 @@ func (s *State) Has(id int64) bool {
 func (s *State) Len() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return len(s.ids)
 }
 
@@ -73,6 +77,7 @@ func (s *State) Add(id int64) error {
 	defer s.mu.Unlock()
 
 	s.ids[id] = struct{}{}
+
 	return s.saveLocked()
 }
 
@@ -81,6 +86,7 @@ func (s *State) Add(id int64) error {
 func (s *State) ProjectID() int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.projectID
 }
 
@@ -93,6 +99,7 @@ func (s *State) SetProjectID(id int64) error {
 	defer s.mu.Unlock()
 
 	s.projectID = id
+
 	return s.saveLocked()
 }
 
@@ -104,25 +111,31 @@ func (s *State) saveLocked() error {
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("state: encoding: %w", err)
 	}
 
 	dir := filepath.Dir(s.path)
 	tmp, err := os.CreateTemp(dir, ".state-*.json.tmp")
 	if err != nil {
-		return err
+		return fmt.Errorf("state: creating temp file: %w", err)
 	}
 	tmpPath := tmp.Name()
 
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmpPath)
-		return err
+
+		return fmt.Errorf("state: writing temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpPath)
-		return err
+
+		return fmt.Errorf("state: closing temp file: %w", err)
 	}
 
-	return os.Rename(tmpPath, s.path)
+	if err := os.Rename(tmpPath, s.path); err != nil {
+		return fmt.Errorf("state: replacing %s: %w", s.path, err)
+	}
+
+	return nil
 }

@@ -3,10 +3,11 @@
 // timer, until it receives SIGINT or SIGTERM.
 //
 // Every setting is an environment variable — see the README — so there is
-// no flag parsing here, and nothing to hand off to a CLI framework. The one
-// exception is a single positional "healthcheck" argument, invoked by the
-// Dockerfile's HEALTHCHECK rather than a person, since the distroless base
-// image has no shell or curl to run one out of.
+// no config file and nothing for a "forgejo-time-sync init" to write. Cobra
+// still parses the command line, for the one real command-line surface this
+// has: a "healthcheck" subcommand, invoked by the Dockerfile's HEALTHCHECK
+// rather than a person, since the distroless base image has no shell or
+// curl to run one out of.
 package main
 
 import (
@@ -25,6 +26,7 @@ import (
 	"github.com/alrayyes/forgejo-time-sync/internal/state"
 	"github.com/alrayyes/forgejo-time-sync/internal/sync"
 	"github.com/alrayyes/forgejo-time-sync/internal/toggl"
+	"github.com/spf13/cobra"
 )
 
 // reconcileLookback is how far back to search Toggl when seeding an empty
@@ -33,31 +35,48 @@ import (
 const reconcileLookback = 90 * 24 * time.Hour
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := runHealthcheck(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		return
-	}
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
-	if err := run(context.Background(), logger); err != nil {
-		logger.Error("forgejo-time-sync exiting", "error", err)
+	if err := newRootCmd().Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-// runHealthcheck reads the same env config the main loop would, so it's
-// checking the heartbeat file that same configuration's poll loop writes.
-func runHealthcheck() error {
-	cfg, err := config.Load(os.Getenv)
-	if err != nil {
-		return err
+func newRootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           "forgejo-time-sync",
+		Short:         "Polls a Forgejo repo's tracked time and pushes it into Toggl",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+			if err := run(cmd.Context(), logger); err != nil {
+				logger.Error("forgejo-time-sync exiting", "error", err)
+
+				return err
+			}
+
+			return nil
+		},
 	}
-	hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
-	return hb.Check(heartbeatMaxAge(cfg.SyncInterval))
+	cmd.AddCommand(newHealthcheckCmd())
+
+	return cmd
+}
+
+func newHealthcheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:          "healthcheck",
+		Short:        "Checks the poll loop's heartbeat file (used by the Dockerfile's HEALTHCHECK)",
+		SilenceUsage: true,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := config.Load(config.New())
+			if err != nil {
+				return fmt.Errorf("loading config: %w", err)
+			}
+			hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
+
+			return hb.Check(heartbeatMaxAge(cfg.SyncInterval))
+		},
+	}
 }
 
 // heartbeatPath keeps the heartbeat file on the same volume as the state
@@ -74,29 +93,50 @@ func heartbeatMaxAge(interval time.Duration) time.Duration {
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
-	cfg, err := config.Load(os.Getenv)
+	cfg, err := config.Load(config.New())
 	if err != nil {
-		return err
+		return fmt.Errorf("loading config: %w", err)
 	}
 
 	st, err := state.Load(cfg.StateFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading state: %w", err)
 	}
 
 	fg, err := forgejo.NewClient(cfg.ForgejoBaseURL, cfg.ForgejoToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("connecting to forgejo: %w", err)
 	}
 	tg := toggl.NewClient(cfg.TogglAPIToken, cfg.TogglOrganizationID, cfg.TogglMaxRequestsPerHour)
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	projectAlreadyResolved := cfg.TogglProjectID != 0 || st.ProjectID() != 0
-	projectID, err := sync.ResolveProject(ctx, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, cfg.TogglProjectID)
+	projectID, err := resolveAndReconcile(ctx, logger, tg, st, cfg)
 	if err != nil {
 		return err
+	}
+
+	logger.Info("starting poll loop",
+		"interval", cfg.SyncInterval,
+		"forgejo_owner", cfg.ForgejoOwner,
+		"forgejo_repo", cfg.ForgejoRepo,
+	)
+
+	pollLoop(ctx, logger, fg, tg, st, cfg, projectID)
+
+	return nil
+}
+
+// resolveAndReconcile settles the Toggl project this run syncs into, and —
+// on a genuinely cold start — seeds state from Toggl's own history so a
+// lost volume doesn't duplicate every entry already synced.
+func resolveAndReconcile(ctx context.Context, logger *slog.Logger, tg *toggl.Client, st *state.State, cfg config.Config) (int64, error) {
+	projectAlreadyResolved := cfg.TogglProjectID != 0 || st.ProjectID() != 0
+
+	projectID, err := sync.ResolveProject(ctx, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, cfg.TogglProjectID)
+	if err != nil {
+		return 0, fmt.Errorf("resolving toggl project: %w", err)
 	}
 	if !projectAlreadyResolved {
 		logger.Info("auto-provisioned toggl client/project", "toggl_project_id", projectID)
@@ -109,12 +149,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		}
 	}
 
-	logger.Info("starting poll loop",
-		"interval", cfg.SyncInterval,
-		"forgejo_owner", cfg.ForgejoOwner,
-		"forgejo_repo", cfg.ForgejoRepo,
-	)
+	return projectID, nil
+}
 
+func pollLoop(ctx context.Context, logger *slog.Logger, fg *forgejo.Client, tg *toggl.Client, st *state.State, cfg config.Config, projectID int64) {
 	hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
 	touchHeartbeat := func() {
 		if err := hb.Touch(); err != nil {
@@ -132,7 +170,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		select {
 		case <-ctx.Done():
 			logger.Info("shutting down")
-			return nil
+
+			return
 		case <-ticker.C:
 			poll(ctx, logger, fg, tg, st, cfg, projectID)
 			// Touched regardless of whether poll found or synced
@@ -149,6 +188,7 @@ func poll(ctx context.Context, logger *slog.Logger, fg *forgejo.Client, tg *togg
 	created, err := sync.RepoTimes(ctx, fg, tg, st, cfg.ForgejoOwner, cfg.ForgejoRepo, cfg.TogglWorkspaceID, projectID)
 	if err != nil {
 		logger.Error("sync pass failed, retrying next poll", "error", err)
+
 		return
 	}
 	if len(created) > 0 {

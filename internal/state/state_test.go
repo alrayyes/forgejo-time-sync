@@ -5,27 +5,34 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/alrayyes/forgejo-time-sync/internal/state"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadMissingFileStartsEmpty(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 
 	s, err := state.Load(path)
 	require.NoError(t, err)
 
 	t.Run("has no synced ids", func(t *testing.T) {
+		t.Parallel()
+
 		require.False(t, s.Has(1))
 	})
 
 	t.Run("reports zero length", func(t *testing.T) {
+		t.Parallel()
+
 		require.Zero(t, s.Len())
 	})
 }
 
 func TestAddPersistsAcrossLoad(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 	s, err := state.Load(path)
 	require.NoError(t, err)
@@ -35,15 +42,21 @@ func TestAddPersistsAcrossLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("the id added before persisting survives a reload", func(t *testing.T) {
+		t.Parallel()
+
 		require.True(t, reloaded.Has(42))
 	})
 
 	t.Run("length survives a reload", func(t *testing.T) {
+		t.Parallel()
+
 		require.Equal(t, 1, reloaded.Len())
 	})
 }
 
 func TestAddIsIdempotent(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 	s, err := state.Load(path)
 	require.NoError(t, err)
@@ -55,6 +68,8 @@ func TestAddIsIdempotent(t *testing.T) {
 }
 
 func TestProjectIDDefaultsToZero(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 	s, err := state.Load(path)
 	require.NoError(t, err)
@@ -63,6 +78,8 @@ func TestProjectIDDefaultsToZero(t *testing.T) {
 }
 
 func TestSetProjectIDPersistsAcrossLoad(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 	s, err := state.Load(path)
 	require.NoError(t, err)
@@ -75,6 +92,8 @@ func TestSetProjectIDPersistsAcrossLoad(t *testing.T) {
 }
 
 func TestSetProjectIDDoesNotDisturbSyncedIDs(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 	s, err := state.Load(path)
 	require.NoError(t, err)
@@ -86,6 +105,8 @@ func TestSetProjectIDDoesNotDisturbSyncedIDs(t *testing.T) {
 }
 
 func TestAddLeavesNoTempFileBehind(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "state.json")
 	s, err := state.Load(path)
