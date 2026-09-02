@@ -1,3 +1,11 @@
+## [1.4.4](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.3...v1.4.4) (2026-09-02)
+
+
+### Bug Fixes
+
+* **compose:** harden the container's runtime flags ([#56](https://github.com/alrayyes/forgejo-time-sync/issues/56)) ([89b703b](https://github.com/alrayyes/forgejo-time-sync/commit/89b703bbd2d31b5f35a84263122b148435393d59)), closes [#40](https://github.com/alrayyes/forgejo-time-sync/issues/40)
+* **config:** load Toggl/Forgejo tokens as Compose secrets ([#57](https://github.com/alrayyes/forgejo-time-sync/issues/57)) ([d5ea336](https://github.com/alrayyes/forgejo-time-sync/commit/d5ea3361bdaa2a6b9b577de43d6dbb6f89dd1473)), closes [#41](https://github.com/alrayyes/forgejo-time-sync/issues/41)
+
 ## [1.4.3](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.2...v1.4.3) (2026-09-01)
 
 
