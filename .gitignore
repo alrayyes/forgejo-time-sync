@@ -7,3 +7,5 @@ node_modules/
 .bun-cache/
 
 .env
+secrets/forgejo_token
+secrets/toggl_api_token

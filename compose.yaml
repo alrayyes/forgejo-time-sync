@@ -4,6 +4,17 @@ services:
     image: forgejo-time-sync
     restart: unless-stopped
     env_file: .env
+    # The two actual credentials come from secrets: below, not env_file —
+    # environment:/env_file is readable by any process in the container
+    # and shows up in `docker inspect` and logs, a secrets: file is not.
+    # The app reads a *_FILE-suffixed env var pointing at the mounted
+    # secret in preference to the plain one (internal/config).
+    environment:
+      FORGEJO_TOKEN_FILE: /run/secrets/forgejo_token
+      TOGGL_API_TOKEN_FILE: /run/secrets/toggl_api_token
+    secrets:
+      - forgejo_token
+      - toggl_api_token
     volumes:
       - state:/data
     # Least-privilege runtime flags. The app never binds a port, listens,
@@ -19,3 +30,9 @@ services:
 
 volumes:
   state:
+
+secrets:
+  forgejo_token:
+    file: ./secrets/forgejo_token
+  toggl_api_token:
+    file: ./secrets/toggl_api_token
