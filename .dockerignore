@@ -1,0 +1,36 @@
+# The Dockerfile only COPYs go.mod, go.sum, cmd/ and internal/ — everything
+# else here just bloats the build context sent to the daemon on every build.
+.git
+.github
+.claude
+openspec
+node_modules
+.bun-cache
+e2e
+scripts
+docs
+*.md
+CHANGELOG.md
+LICENSE
+SECURITY.md
+coverage.out
+coverage.html
+dist
+/forgejo-time-sync
+.env
+.env.example
+compose.yaml
+Dockerfile
+.dockerignore
+.editorconfig
+.gitattributes
+.gitignore
+.golangci.yml
+.hadolint.yaml
+.markdownlint-cli2.yaml
+.commitlintrc.json
+.prettierrc.json
+.prettierignore
+lefthook.yml
+bun.lock
+package.json
