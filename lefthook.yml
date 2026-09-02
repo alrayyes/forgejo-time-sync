@@ -46,6 +46,10 @@ pre-commit:
         golang:1.27.0-bookworm go mod edit -fmt go.mod
       stage_fixed: true
 
+    - name: docker build
+      glob: "{Dockerfile,*.go,go.mod,go.sum}"
+      run: docker build -t forgejo-time-sync:pre-commit-check . && docker rmi forgejo-time-sync:pre-commit-check
+
     - name: prettier
       glob: "*.{md,yml,yaml}"
       run: bunx prettier --write {staged_files}
@@ -86,6 +90,9 @@ pre-push:
     - name: hadolint
       glob: "Dockerfile"
       run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
+
+    - name: docker build
+      run: docker build .
 
     - name: govulncheck
       run: >-
