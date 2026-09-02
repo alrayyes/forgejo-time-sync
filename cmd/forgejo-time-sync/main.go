@@ -16,7 +16,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -72,24 +71,11 @@ func newHealthcheckCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("loading config: %w", err)
 			}
-			hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
+			hb := health.NewHeartbeat(health.HeartbeatPath(cfg.StateFilePath))
 
-			return hb.Check(heartbeatMaxAge(cfg.SyncInterval))
+			return hb.Check(health.MaxAge(cfg.SyncInterval))
 		},
 	}
-}
-
-// heartbeatPath keeps the heartbeat file on the same volume as the state
-// file, so it needs no config of its own.
-func heartbeatPath(stateFilePath string) string {
-	return filepath.Join(filepath.Dir(stateFilePath), "healthcheck")
-}
-
-// heartbeatMaxAge allows a couple of missed ticks — a single slow poll
-// (a slow Forgejo/Toggl response, not a hang) shouldn't flap the container
-// unhealthy — while still catching a genuinely stuck loop.
-func heartbeatMaxAge(interval time.Duration) time.Duration {
-	return 3 * interval
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
@@ -153,7 +139,7 @@ func resolveAndReconcile(ctx context.Context, logger *slog.Logger, tg *toggl.Cli
 }
 
 func pollLoop(ctx context.Context, logger *slog.Logger, fg *forgejo.Client, tg *toggl.Client, st *state.State, cfg config.Config, projectID int64) {
-	hb := health.NewHeartbeat(heartbeatPath(cfg.StateFilePath))
+	hb := health.NewHeartbeat(health.HeartbeatPath(cfg.StateFilePath))
 	touchHeartbeat := func() {
 		if err := hb.Touch(); err != nil {
 			logger.Warn("failed to update healthcheck heartbeat", "error", err)

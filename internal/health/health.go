@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -21,6 +22,19 @@ var errStaleHeartbeat = errors.New("health: heartbeat is stale")
 // Heartbeat is a liveness marker backed by a file's modification time.
 type Heartbeat struct {
 	path string
+}
+
+// HeartbeatPath keeps the heartbeat file on the same volume as the state
+// file at stateFilePath, so it needs no config of its own.
+func HeartbeatPath(stateFilePath string) string {
+	return filepath.Join(filepath.Dir(stateFilePath), "healthcheck")
+}
+
+// MaxAge allows a couple of missed ticks — a single slow poll (a slow
+// Forgejo/Toggl response, not a hang) shouldn't flap the container
+// unhealthy — while still catching a genuinely stuck loop.
+func MaxAge(interval time.Duration) time.Duration {
+	return 3 * interval
 }
 
 // NewHeartbeat returns a Heartbeat backed by the file at path.
