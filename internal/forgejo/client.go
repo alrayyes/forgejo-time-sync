@@ -1,7 +1,6 @@
 // Package forgejo wraps the official Forgejo SDK
-// (codeberg.org/mvdkleijn/forgejo-sdk) for the handful of calls this tool
-// needs: reading a repo's tracked time, and — for stopwatch mirroring —
-// listing, starting and stopping issue stopwatches.
+// (codeberg.org/mvdkleijn/forgejo-sdk) for the one call this tool needs:
+// reading a repo's tracked time.
 package forgejo
 
 import (
