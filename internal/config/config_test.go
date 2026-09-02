@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -140,4 +142,66 @@ func TestLoadRejectsNonNumericOrganizationID(t *testing.T) {
 	_, err := config.Load(testViper(t, map[string]string{"TOGGL_ORGANIZATION_ID": "not-a-number"}))
 
 	require.Error(t, err)
+}
+
+func writeSecretFile(t *testing.T, contents string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "secret")
+	require.NoError(t, os.WriteFile(path, []byte(contents), 0o600))
+
+	return path
+}
+
+func TestLoadReadsTogglAPITokenFromFile(t *testing.T) {
+	t.Parallel()
+
+	path := writeSecretFile(t, "toggl-token-from-file\n")
+
+	cfg, err := config.Load(testViper(t, map[string]string{
+		"TOGGL_API_TOKEN":      "",
+		"TOGGL_API_TOKEN_FILE": path,
+	}))
+
+	require.NoError(t, err)
+	require.Equal(t, "toggl-token-from-file", cfg.TogglAPIToken)
+}
+
+func TestLoadReadsForgejoTokenFromFile(t *testing.T) {
+	t.Parallel()
+
+	path := writeSecretFile(t, "forgejo-token-from-file\n")
+
+	cfg, err := config.Load(testViper(t, map[string]string{
+		"FORGEJO_TOKEN":      "",
+		"FORGEJO_TOKEN_FILE": path,
+	}))
+
+	require.NoError(t, err)
+	require.Equal(t, "forgejo-token-from-file", cfg.ForgejoToken)
+}
+
+func TestLoadPrefersFileOverPlainEnvVarWhenBothSet(t *testing.T) {
+	t.Parallel()
+
+	path := writeSecretFile(t, "from-file")
+
+	cfg, err := config.Load(testViper(t, map[string]string{ //nolint:gosec // test fixture values, not real credentials
+		"TOGGL_API_TOKEN":      "from-plain-env",
+		"TOGGL_API_TOKEN_FILE": path,
+	}))
+
+	require.NoError(t, err)
+	require.Equal(t, "from-file", cfg.TogglAPIToken)
+}
+
+func TestLoadFailsWhenSecretFileIsUnreadable(t *testing.T) {
+	t.Parallel()
+
+	_, err := config.Load(testViper(t, map[string]string{
+		"TOGGL_API_TOKEN":      "",
+		"TOGGL_API_TOKEN_FILE": filepath.Join(t.TempDir(), "does-not-exist"),
+	}))
+
+	require.ErrorContains(t, err, "TOGGL_API_TOKEN_FILE")
 }

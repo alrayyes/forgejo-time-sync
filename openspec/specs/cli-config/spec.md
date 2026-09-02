@@ -57,3 +57,29 @@ Docker-only daemon with nothing for a user to persist to disk.
 - **WHEN** `TOGGL_PROJECT_ID` is unset
 - **THEN** the Toggl project is auto-provisioned instead of pinned to an
   explicit ID (see `toggl-project-resolution`)
+
+### Requirement: Secret values may come from a file
+
+`FORGEJO_TOKEN` and `TOGGL_API_TOKEN` SHALL each accept a `_FILE`-suffixed
+alternative (`FORGEJO_TOKEN_FILE`, `TOGGL_API_TOKEN_FILE`) naming a file to
+read the value from, so the real credential never has to sit in a plain
+environment variable — Docker Compose's `secrets:` mount is the primary
+use case.
+
+#### Scenario: Only the _FILE variant is set
+
+- **WHEN** `TOGGL_API_TOKEN_FILE` is set to a readable file's path and
+  `TOGGL_API_TOKEN` is unset
+- **THEN** the value is read from that file (trimmed of surrounding
+  whitespace) and used as the Toggl API token
+
+#### Scenario: Both the plain variable and the _FILE variant are set
+
+- **WHEN** both `TOGGL_API_TOKEN` and `TOGGL_API_TOKEN_FILE` are set
+- **THEN** the value from the file wins
+
+#### Scenario: _FILE path is unreadable
+
+- **WHEN** `FORGEJO_TOKEN_FILE` is set to a path that can't be read
+- **THEN** the process fails to start with an error naming
+  `FORGEJO_TOKEN_FILE`, rather than falling back to an empty token

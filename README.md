@@ -81,7 +81,18 @@ Pull the published image — every merge to `main` releases a new version to
 mkdir forgejo-time-sync && cd forgejo-time-sync
 curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/compose.yaml
 curl -O https://raw.githubusercontent.com/alrayyes/forgejo-time-sync/main/.env.example
-cp .env.example .env # fill in your Forgejo and Toggl details
+cp .env.example .env # fill in the non-secret Forgejo and Toggl details
+mkdir secrets
+echo -n "your-forgejo-token" > secrets/forgejo_token
+echo -n "your-toggl-api-token" > secrets/toggl_api_token
+docker compose pull
+docker compose up -d
+```
+
+Running the image directly instead of via Compose — no `secrets:` mount, so
+the two tokens go in `.env` like everything else:
+
+```sh
 docker run -d --restart unless-stopped \
   --env-file .env \
   -v forgejo-time-sync-state:/data \
@@ -95,7 +106,10 @@ Or build from source:
 ```sh
 git clone https://github.com/alrayyes/forgejo-time-sync.git
 cd forgejo-time-sync
-cp .env.example .env # fill in your Forgejo and Toggl details
+cp .env.example .env # fill in the non-secret Forgejo and Toggl details
+mkdir secrets
+echo -n "your-forgejo-token" > secrets/forgejo_token
+echo -n "your-toggl-api-token" > secrets/toggl_api_token
 docker compose up -d
 ```
 
@@ -106,16 +120,23 @@ All configuration is environment variables — see `.env.example`.
 | Variable                      | Required | Default            |
 | ----------------------------- | -------- | ------------------ |
 | `FORGEJO_BASE_URL`            | yes      | —                  |
-| `FORGEJO_TOKEN`               | yes      | —                  |
+| `FORGEJO_TOKEN`               | yes\*    | —                  |
 | `FORGEJO_OWNER`               | yes      | —                  |
 | `FORGEJO_REPO`                | yes      | —                  |
-| `TOGGL_API_TOKEN`             | yes      | —                  |
+| `TOGGL_API_TOKEN`             | yes\*    | —                  |
 | `TOGGL_ORGANIZATION_ID`       | yes      | —                  |
 | `TOGGL_WORKSPACE_ID`          | yes      | —                  |
 | `TOGGL_PROJECT_ID`            | no       | auto-provisioned   |
 | `SYNC_INTERVAL_SECONDS`       | no       | `10`               |
 | `STATE_FILE_PATH`             | no       | `/data/state.json` |
 | `TOGGL_MAX_REQUESTS_PER_HOUR` | no       | `30`               |
+
+\* `FORGEJO_TOKEN` and `TOGGL_API_TOKEN` each have a `_FILE`-suffixed
+alternative (`FORGEJO_TOKEN_FILE`, `TOGGL_API_TOKEN_FILE`) that names a
+file to read the value from instead — one or the other is required, not
+both. `compose.yaml` wires these to its Compose `secrets:` mount so the
+real values never sit in a plain environment variable; see Installation
+above.
 
 The Focus API has no "list my organizations" endpoint to derive
 `TOGGL_ORGANIZATION_ID` from, so find both ids by hand in Toggl's own UI —
