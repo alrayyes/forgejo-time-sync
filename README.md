@@ -85,6 +85,8 @@ cp .env.example .env # fill in your Forgejo and Toggl details
 docker run -d --restart unless-stopped \
   --env-file .env \
   -v forgejo-time-sync-state:/data \
+  --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+  --memory=128m --cpus=0.5 \
   ghcr.io/alrayyes/forgejo-time-sync:latest
 ```
 

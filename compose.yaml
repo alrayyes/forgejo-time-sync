@@ -6,6 +6,16 @@ services:
     env_file: .env
     volumes:
       - state:/data
+    # Least-privilege runtime flags. The app never binds a port, listens,
+    # or needs any Linux capability, and the only path it ever writes is
+    # /data (already its own volume) — read_only needs no extra tmpfs.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 128m
+    cpus: 0.5
 
 volumes:
   state:
