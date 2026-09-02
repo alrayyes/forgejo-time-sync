@@ -112,3 +112,6 @@ pre-push:
 
     - name: sort-package-json
       run: bun run lint:package-json
+
+    - name: bun audit
+      run: bun audit
