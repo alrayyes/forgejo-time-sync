@@ -55,3 +55,15 @@ func TestTouchCanBeCalledRepeatedly(t *testing.T) {
 
 	require.NoError(t, hb.Check(time.Minute))
 }
+
+func TestHeartbeatPathSitsBesideTheStateFile(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "/data/healthcheck", health.HeartbeatPath("/data/state.json"))
+}
+
+func TestMaxAgeIsThreePollIntervals(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 30*time.Second, health.MaxAge(10*time.Second))
+}
