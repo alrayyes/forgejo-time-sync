@@ -50,6 +50,20 @@ CI runs exactly these commands — see `.github/workflows/ci.yml`. The git
 hooks in `lefthook.yml` run the fast subset on commit and the rest on push,
 so a red pipeline should never be a surprise.
 
+## Spec-driven development
+
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) tracks requirements
+separately from code, under `openspec/`. `openspec/specs/` is the current
+baseline — what the system does today. A change that isn't a typo fix or a
+dependency bump starts as a proposal under `openspec/changes/<name>/`
+(`proposal.md`, spec deltas, `tasks.md`), gets implemented against it, then
+archives into `openspec/specs/` once it ships.
+
+Claude Code sessions in this repo get the workflow as `/opsx:*` slash
+commands (`.claude/commands/opsx/`); anyone else drives it with the
+`openspec` CLI directly (`bunx @fission-ai/openspec@1.11.0 ...`, or
+`bunx openspec ...` once installed as a devDependency).
+
 ## Commits and branches
 
 [Conventional Commits](https://www.conventionalcommits.org/), enforced by
