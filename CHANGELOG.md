@@ -1,3 +1,10 @@
+## [1.4.5](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.4...v1.4.5) (2026-09-09)
+
+
+### Bug Fixes
+
+* **deps:** resolve fast-uri and js-yaml audit CVEs ([#62](https://github.com/alrayyes/forgejo-time-sync/issues/62)) ([937037f](https://github.com/alrayyes/forgejo-time-sync/commit/937037f2240d9e0461da9ab9a27c7b6dcb1f1c06))
+
 ## [1.4.4](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.3...v1.4.4) (2026-09-02)
 
 
