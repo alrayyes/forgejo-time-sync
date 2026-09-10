@@ -8,6 +8,9 @@
     "lint:package-json": "sort-package-json --check",
     "prepare": "lefthook install"
   },
+  "overrides": {
+    "smol-toml": "1.7.2"
+  },
   "devDependencies": {
     "@commitlint/cli": "21.2.2",
     "@commitlint/config-conventional": "21.2.2",
