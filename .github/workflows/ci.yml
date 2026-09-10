@@ -14,7 +14,11 @@ jobs:
         with:
           go-version: "1.27.0"
       - run: go build ./...
-      - run: go test -race -coverprofile=coverage.out ./...
+      # gotestsum wraps go test for the JUnit report Test Analytics needs,
+      # on top of the same human-readable output go test already gave.
+      - run: >-
+          go tool gotestsum --junitfile junit.xml --
+          -race -coverprofile=coverage.out ./...
       - name: Coverage summary
         run: |
           echo "### Coverage" >> "$GITHUB_STEP_SUMMARY"
@@ -29,6 +33,14 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
+          fail_ci_if_error: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && github.actor != 'dependabot[bot]' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report-type: test_results
+          files: junit.xml
           fail_ci_if_error: true
       # Boots real Forgejo + Prism mock containers — see e2e/e2e_test.go.
       # GitHub-hosted runners have a Docker daemon available.
