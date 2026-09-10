@@ -1,3 +1,10 @@
+## [1.4.7](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.6...v1.4.7) (2026-09-10)
+
+
+### Bug Fixes
+
+* **ci:** correct codecov-action input to report_type, not report-type ([#66](https://github.com/alrayyes/forgejo-time-sync/issues/66)) ([0614c97](https://github.com/alrayyes/forgejo-time-sync/commit/0614c97d48e17d4e6c39b683661b7036ccbc17b3))
+
 ## [1.4.6](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.5...v1.4.6) (2026-09-09)
 
 
