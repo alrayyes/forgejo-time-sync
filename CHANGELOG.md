@@ -1,3 +1,10 @@
+## [1.4.8](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.7...v1.4.8) (2026-09-11)
+
+
+### Bug Fixes
+
+* **test:** give each toggl test client its own http.Client ([#67](https://github.com/alrayyes/forgejo-time-sync/issues/67)) ([da3aefc](https://github.com/alrayyes/forgejo-time-sync/commit/da3aefc1ad767956db70aec45afd3a289901f64c)), closes [#63](https://github.com/alrayyes/forgejo-time-sync/issues/63)
+
 ## [1.4.7](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.6...v1.4.7) (2026-09-10)
 
 
