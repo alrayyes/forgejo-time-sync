@@ -28,6 +28,12 @@ func newTestClient(t *testing.T, waiter *countingWaiter, handler http.HandlerFun
 
 	c := toggl.NewClientWithPacer("test-token", testOrganizationID, waiter)
 	c.BaseURL = srv.URL
+	// Each server gets its own client, not http.DefaultClient's shared
+	// transport - every test in this file runs t.Parallel(), and closing
+	// one server tore down connections a different, still-in-flight
+	// retry was using on the shared default transport ("http: transport
+	// connection broken: http: CloseIdleConnections called").
+	c.HTTPClient = srv.Client()
 
 	return c
 }
