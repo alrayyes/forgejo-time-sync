@@ -1,3 +1,11 @@
+## [1.4.9](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.8...v1.4.9) (2026-09-12)
+
+
+### Bug Fixes
+
+* **deps:** bump github.com/moby/go-archive from 0.2.0 to 0.3.0 ([#69](https://github.com/alrayyes/forgejo-time-sync/issues/69)) ([3b6fe72](https://github.com/alrayyes/forgejo-time-sync/commit/3b6fe72427fe49c72f34b0ffe218c4bb7ca9b327))
+* **deps:** bump go.mongodb.org/mongo-driver from 1.17.6 to 1.17.7 ([#68](https://github.com/alrayyes/forgejo-time-sync/issues/68)) ([587c9b7](https://github.com/alrayyes/forgejo-time-sync/commit/587c9b7cefc934179842589e8b902026513b5a48))
+
 ## [1.4.8](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.7...v1.4.8) (2026-09-11)
 
 
