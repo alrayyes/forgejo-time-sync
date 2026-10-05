@@ -1,3 +1,10 @@
+## [1.4.11](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.10...v1.4.11) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** bump golang from `3680233` to `e0174e5` ([#79](https://github.com/alrayyes/forgejo-time-sync/issues/79)) ([72063b6](https://github.com/alrayyes/forgejo-time-sync/commit/72063b6c52786195e7eae0e48dacb456bdab3007))
+
 ## [1.4.10](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.9...v1.4.10) (2026-10-05)
 
 
