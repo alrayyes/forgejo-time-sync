@@ -9,6 +9,7 @@
     "prepare": "lefthook install"
   },
   "overrides": {
+    "fast-uri": "3.1.8",
     "smol-toml": "1.7.2"
   },
   "devDependencies": {
