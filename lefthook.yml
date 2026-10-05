@@ -121,4 +121,5 @@ pre-push:
       run: bun run lint:package-json
 
     - name: bun audit
-      run: bun audit
+      # braces has no patched release (#80); dev tooling only, not in the image.
+      run: bun audit --ignore=GHSA-vfj7-8cjw-p6xm
