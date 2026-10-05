@@ -1,3 +1,12 @@
+## [1.4.10](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.9...v1.4.10) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** bump golang from `512690a` to `f44f6e8` ([#71](https://github.com/alrayyes/forgejo-time-sync/issues/71)) ([a981ff9](https://github.com/alrayyes/forgejo-time-sync/commit/a981ff9bca98a0212d33ca3cd419fc6fb9f9a243))
+* **deps:** bump golang from `f44f6e8` to `3680233` ([#76](https://github.com/alrayyes/forgejo-time-sync/issues/76)) ([966445d](https://github.com/alrayyes/forgejo-time-sync/commit/966445d5dc57c2ae9206479b0bee4c8d56223edc))
+* **deps:** pin fast-uri to 3.1.8 to clear audit advisory ([901fec3](https://github.com/alrayyes/forgejo-time-sync/commit/901fec386aa5574fd187746a22482b6b9bd05c24)), closes [#80](https://github.com/alrayyes/forgejo-time-sync/issues/80)
+
 ## [1.4.9](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.8...v1.4.9) (2026-09-12)
 
 
