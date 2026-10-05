@@ -77,4 +77,5 @@ jobs:
       - run: bun run format:check
       - run: bun run lint:md
       - run: bun run lint:package-json
-      - run: bun audit
+      # braces has no patched release (#80); dev tooling only, not in the image.
+      - run: bun audit --ignore=GHSA-vfj7-8cjw-p6xm
