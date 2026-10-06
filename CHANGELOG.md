@@ -1,3 +1,10 @@
+## [1.4.12](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.11...v1.4.12) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deps:** override katex and smol-toml to patched releases ([c140103](https://github.com/alrayyes/forgejo-time-sync/commit/c140103884d27af3c6bd71ed93171a1fbb03cec9)), closes [#83](https://github.com/alrayyes/forgejo-time-sync/issues/83)
+
 ## [1.4.11](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.10...v1.4.11) (2026-10-05)
 
 
