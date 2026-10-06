@@ -45,7 +45,7 @@ docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1
 docker build .             # hadolint reads the Dockerfile as text, this proves it builds
 bun run format:check      # prettier, markdown and yaml
 bun run lint:md           # markdownlint
-bun audit --ignore=GHSA-vfj7-8cjw-p6xm  # JS tooling vulns; braces ignored, no patch (#80)
+bun audit --ignore=GHSA-vfj7-8cjw-p6xm  # JS tooling vulns; braces ignored, no patched release exists
 ```
 
 CI runs exactly these commands — see `.github/workflows/ci.yml`. The git
