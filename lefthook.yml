@@ -43,7 +43,7 @@ pre-commit:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.0-bookworm go mod edit -fmt go.mod
+        golang:1.27.2-bookworm go mod edit -fmt go.mod
       stage_fixed: true
 
     - name: docker build
@@ -80,7 +80,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.0-bookworm go test -race ./...
+        golang:1.27.2-bookworm go test -race ./...
 
     # Not containerized — needs the host Docker daemon directly for
     # testcontainers-go. See the file-level comment above.
@@ -100,7 +100,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.0-bookworm go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+        golang:1.27.2-bookworm go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
     - name: go.mod
       run: >-
@@ -108,7 +108,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.0-bookworm go mod edit -fmt go.mod
+        golang:1.27.2-bookworm go mod edit -fmt go.mod
         && git diff --exit-code go.mod
 
     - name: prettier
