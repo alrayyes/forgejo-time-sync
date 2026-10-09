@@ -21,7 +21,7 @@ pre-commit:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
-        golangci/golangci-lint:v2.13.2 golangci-lint fmt {staged_files}
+        golangci/golangci-lint:v2.14.0 golangci-lint fmt {staged_files}
       stage_fixed: true
 
     - name: golangci-lint run
@@ -31,7 +31,7 @@ pre-commit:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
-        golangci/golangci-lint:v2.13.2 golangci-lint run ./...
+        golangci/golangci-lint:v2.14.0 golangci-lint run ./...
 
     # A built-in `go` subcommand, not a third-party tool: gofmt/gofumpt never
     # touch go.mod, and `go mod tidy` does network resolution a
