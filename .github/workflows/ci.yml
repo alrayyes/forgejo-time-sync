@@ -25,6 +25,24 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Build the coverage reports
+        # Cobertura XML for tools that read it, and the HTML view for a
+        # person. Runs on pull requests too, so a broken conversion fails
+        # before the merge.
+        run: |
+          go tool gocover-cobertura < coverage.out > coverage.xml
+          go tool cover -html=coverage.out -o coverage.html
+      - name: Keep the reports for pages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: go-reports
+          path: |
+            junit.xml
+            coverage.out
+            coverage.xml
+            coverage.html
+          if-no-files-found: error
+          retention-days: 1
       # Dependabot-triggered runs pull secrets from GitHub's separate
       # Dependabot secret store, not repo Actions secrets — CODECOV_TOKEN is
       # never there, and none of these bumps touch coverage anyway.
@@ -45,6 +63,94 @@ jobs:
       # Boots real Forgejo + Prism mock containers — see e2e/e2e_test.go.
       # GitHub-hosted runners have a Docker daemon available.
       - run: go test -tags e2e ./e2e/...
+
+  # Assembles the site the reports are published from, on every run. A pull
+  # request builds it too, so a broken staging step fails before the merge;
+  # only a push to main uploads it as the Pages artifact. No `environment:`
+  # here: the github-pages environment is limited to main.
+  assemble-reports:
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-reports
+          path: _go-reports
+      - name: Stage the site
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          mkdir -p site/reports/tests site/reports/coverage
+          cp _go-reports/junit.xml site/reports/tests/junit.xml
+          cp _go-reports/coverage.html site/reports/coverage/index.html
+          cp _go-reports/coverage.xml _go-reports/coverage.out site/reports/coverage/
+          cat > site/reports/index.html <<HTML
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>forgejo-time-sync reports</title>
+            </head>
+            <body>
+              <main>
+                <h1>forgejo-time-sync reports</h1>
+                <p>
+                  Commit
+                  <a href="https://github.com/alrayyes/forgejo-time-sync/commit/${SHA}"><code>${SHA:0:7}</code></a>,
+                  published $(date -u +%Y-%m-%d) (UTC).
+                </p>
+                <ul>
+                  <li><a href="tests/junit.xml">Test results (JUnit XML)</a></li>
+                  <li><a href="coverage/">Coverage (HTML)</a></li>
+                  <li><a href="coverage/coverage.xml">Coverage (Cobertura XML)</a></li>
+                  <li><a href="coverage/coverage.out">Coverage (native profile)</a></li>
+                </ul>
+              </main>
+            </body>
+          </html>
+          HTML
+      - name: Upload the site for Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  # Deploys the assembled site to GitHub Pages, on a push to main only. A
+  # deploy replaces the whole site, so every other job has to have passed: a
+  # red run publishes nothing and the last green set stays up.
+  pages:
+    needs: [test, lint, docker, docs, assemble-reports]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Check the published reports are live
+        # The deploy succeeds whether or not the URL answers, so fetch the
+        # real files. The retries cover the CDN catching up.
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 \
+            --retry-all-errors --output coverage.xml \
+            "${PAGE_URL%/}/reports/coverage/coverage.xml"
+          grep -q '<coverage ' coverage.xml
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 \
+            --retry-all-errors --output junit.xml \
+            "${PAGE_URL%/}/reports/tests/junit.xml"
+          grep -q '<testsuite' junit.xml
 
   lint:
     runs-on: ubuntu-latest

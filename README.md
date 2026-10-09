@@ -179,6 +179,17 @@ that vendored spec ever drifts far enough from reality to matter, the
 fallback is testing against a real Toggl test workspace instead — not
 needed yet.
 
+## Reports
+
+Every green run on `main` publishes its results:
+
+- [Test results (JUnit XML)](https://apis.ryankes.eu/forgejo-time-sync/reports/tests/junit.xml)
+- [Coverage (HTML)](https://apis.ryankes.eu/forgejo-time-sync/reports/coverage/)
+- [Coverage (Cobertura XML)](https://apis.ryankes.eu/forgejo-time-sync/reports/coverage/coverage.xml)
+
+The [index](https://apis.ryankes.eu/forgejo-time-sync/reports/) lists them
+with the commit and date.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
