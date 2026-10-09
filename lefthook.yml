@@ -12,6 +12,9 @@
 # isn't portable across machines — not worth it for a hook that already runs
 # the same command CI does, on CI's own pinned toolchain.
 
+# pre-commit judges only what the commit contains: every job takes
+# {staged_files} behind a glob. Whole-tree tools (golangci-lint run, docker
+# build) run in pre-push and CI instead.
 pre-commit:
   jobs:
     - name: golangci-lint fmt
@@ -23,15 +26,6 @@ pre-commit:
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
         golangci/golangci-lint:v2.14.0 golangci-lint fmt {staged_files}
       stage_fixed: true
-
-    - name: golangci-lint run
-      glob: "*.go"
-      run: >-
-        docker run --rm --user "$(id -u):$(id -g)"
-        -v "$(pwd):/src" -w /src
-        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
-        -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
-        golangci/golangci-lint:v2.14.0 golangci-lint run ./...
 
     # A built-in `go` subcommand, not a third-party tool: gofmt/gofumpt never
     # touch go.mod, and `go mod tidy` does network resolution a
@@ -46,10 +40,6 @@ pre-commit:
         golang:1.27.2-bookworm go mod edit -fmt go.mod
       stage_fixed: true
 
-    - name: docker build
-      glob: "{Dockerfile,*.go,go.mod,go.sum}"
-      run: docker build -t forgejo-time-sync:pre-commit-check . && docker rmi forgejo-time-sync:pre-commit-check
-
     - name: prettier
       glob: "*.{md,yml,yaml}"
       run: bunx prettier --write {staged_files}
@@ -61,7 +51,7 @@ pre-commit:
 
     - name: sort-package-json
       glob: "package.json"
-      run: bunx sort-package-json
+      run: bunx sort-package-json {staged_files}
       stage_fixed: true
 
 commit-msg:
@@ -86,6 +76,14 @@ pre-push:
     # testcontainers-go. See the file-level comment above.
     - name: test-e2e
       run: go test -tags e2e ./e2e/...
+
+    - name: golangci-lint run
+      run: >-
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
+        golangci/golangci-lint:v2.14.0 golangci-lint run ./...
 
     - name: hadolint
       glob: "Dockerfile"

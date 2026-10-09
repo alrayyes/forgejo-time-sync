@@ -49,8 +49,10 @@ bun audit --ignore=GHSA-vfj7-8cjw-p6xm  # JS tooling vulns; braces ignored, no p
 ```
 
 CI runs exactly these commands — see `.github/workflows/ci.yml`. The git
-hooks in `lefthook.yml` run the fast subset on commit and the rest on push,
-so a red pipeline should never be a surprise.
+hooks in `lefthook.yml` split it. `pre-commit` formats and checks only the
+staged files, so a commit passes or fails on its own content. `pre-push` runs
+the whole-tree checks (`golangci-lint run`, tests, `docker build`, audits) in
+check mode, so a red pipeline should never be a surprise.
 
 ## Spec-driven development
 
