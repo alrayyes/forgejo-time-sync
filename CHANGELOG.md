@@ -1,3 +1,10 @@
+## [1.4.13](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.12...v1.4.13) (2026-10-12)
+
+
+### Bug Fixes
+
+* **deps:** bump golang from 1.27.1 to 1.27.2 ([#93](https://github.com/alrayyes/forgejo-time-sync/issues/93)) ([34d28ee](https://github.com/alrayyes/forgejo-time-sync/commit/34d28ee125e7874c6e7fbda1683486e58da718d8))
+
 ## [1.4.12](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.11...v1.4.12) (2026-10-06)
 
 
