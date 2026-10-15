@@ -40,12 +40,12 @@ to refresh it. It does not call the real Toggl API.
 ```sh
 golangci-lint run ./...
 golangci-lint fmt ./...   # gofumpt + goimports
-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
 docker build .             # hadolint reads the Dockerfile as text, this proves it builds
 bun run format:check      # prettier, markdown and yaml
 bun run lint:md           # markdownlint
-bun audit --ignore=GHSA-vfj7-8cjw-p6xm  # JS tooling vulns; braces ignored, no patched release exists
+bun audit                 # JS tooling vulns
 ```
 
 CI runs exactly these commands — see `.github/workflows/ci.yml`. The git
@@ -53,6 +53,12 @@ hooks in `lefthook.yml` split it. `pre-commit` formats and checks only the
 staged files, so a commit passes or fails on its own content. `pre-push` runs
 the whole-tree checks (`golangci-lint run`, tests, `docker build`, audits) in
 check mode, so a red pipeline should never be a surprise.
+
+The two audits differ between your machine and CI. CI's `govulncheck` and
+`bun-audit` jobs fail a pull request only for advisories it adds over its
+base, while the local commands list everything. What is already on `main` is
+tracked by `advisory-scan.yml`, which keeps one open `Dependency advisories`
+issue and closes it when the audits are clean. Nothing is ignored.
 
 ## Spec-driven development
 
