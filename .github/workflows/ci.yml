@@ -216,7 +216,7 @@ jobs:
   # What is already on main is the scan's to track, in advisory-scan.yml.
   govulncheck:
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: ${{ !cancelled() && (needs.changes.result == 'failure' || needs.changes.outputs.go == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -236,7 +236,7 @@ jobs:
   # an install.
   bun-audit:
     needs: changes
-    if: needs.changes.outputs.bun == 'true'
+    if: ${{ !cancelled() && (needs.changes.result == 'failure' || needs.changes.outputs.bun == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
