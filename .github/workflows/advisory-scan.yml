@@ -46,9 +46,31 @@ jobs:
         with:
           mode: scan
           command: |
+            # One tool that errors without naming an advisory (registry down) must not be hidden
+            # by another tool's advisory IDs, or the ticket would list half the picture. So
+            # buffer each tool and print nothing, IDs included, if any tool failed blind.
+            # advisory-scan#8 (multi-command support in the action) will replace this wrapper.
+            ids='GO-[0-9]{4}-[0-9]+|GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}'
             status=0
-            go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./... || status=1
-            bun audit || status=1
+            blind=0
+            report=''
+            run_tool() {
+              rc=0
+              out=$("$@" 2>&1) || rc=$?
+              if [ "${rc}" -ne 0 ]; then
+                status=1
+                if ! printf '%s\n' "${out}" | grep -Eiq "${ids}"; then
+                  blind=1
+                  echo "$1 failed without naming an advisory" >&2
+                fi
+              fi
+              report="${report}${out}"$'\n'
+            }
+            run_tool go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+            run_tool bun audit
+            if [ "${blind}" -eq 0 ]; then
+              printf '%s' "${report}"
+            fi
             exit "${status}"
           timeout-seconds: 600
           labels: dependencies
