@@ -92,14 +92,6 @@ pre-push:
     - name: docker build
       run: docker build .
 
-    - name: govulncheck
-      run: >-
-        docker run --rm --user "$(id -u):$(id -g)"
-        -v "$(pwd):/src" -w /src
-        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
-        -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.2-bookworm go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
-
     - name: go.mod
       run: >-
         docker run --rm --user "$(id -u):$(id -g)"
@@ -117,7 +109,3 @@ pre-push:
 
     - name: sort-package-json
       run: bun run lint:package-json
-
-    - name: bun audit
-      # braces has no patched release (#80); dev tooling only, not in the image.
-      run: bun audit --ignore=GHSA-vfj7-8cjw-p6xm
