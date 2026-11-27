@@ -98,11 +98,13 @@ releases nothing. Nobody picks a version by hand.
 Each push to `main` runs `.github/workflows/release.yml`, which keeps a release
 pull request open with the next version and the `CHANGELOG.md` entry. That pull
 request auto-merges once the required checks pass
-(`release-auto-merge.yml`). The merge tags `vX.Y.Z`, creates the GitHub release,
-and builds and pushes the image to `ghcr.io/alrayyes/forgejo-time-sync`, tagged
-with both the version and `latest`. There's no goreleaser here since there's no
-binary artifact for it to build. The image is the release artifact. The current
-version is in `.release-please-manifest.json`.
+(`release-auto-merge.yml`). If `main` moves without changing the release notes,
+the release workflow updates that pull request's branch. The merge tags
+`vX.Y.Z`, creates the GitHub release, and builds and pushes the image to
+`ghcr.io/alrayyes/forgejo-time-sync`, tagged with both the version and
+`latest`. There's no goreleaser here since there's no binary artifact for it to
+build. The image is the release artifact. The current version is in
+`.release-please-manifest.json`.
 
 Dependabot pull requests auto-merge the same way
 (`dependabot-auto-merge.yml`), so a merged bump reaches the release workflow.

@@ -34,6 +34,28 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+      # release-please doesn't push when the release notes are unchanged, and
+      # main requires up-to-date branches, so its pull request would wait
+      # forever behind a chore:, ci: or docs: commit. RELEASE_TOKEN again, so
+      # the checks run on the new head.
+      - name: Bring the open release pull request up to date
+        if: steps.release.outputs.release_created != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          prs=$(gh pr list --base main --label 'autorelease: pending' \
+            --json number,headRefName,isCrossRepository --jq '.[]
+              | select(.isCrossRepository | not)
+              | select(.headRefName | startswith("release-please--"))
+              | "\(.number) \(.headRefName)"')
+          while read -r number head; do
+            [ -n "$number" ] || continue
+            behind=$(gh api "repos/$GH_REPO/compare/main...$head" --jq .behind_by)
+            if [ "$behind" -gt 0 ]; then
+              gh pr update-branch "$number"
+            fi
+          done <<<"$prs"
 
   # A job in this run rather than an on-tag workflow, so it doesn't depend on
   # which token pushed the tag.
