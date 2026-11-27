@@ -21,9 +21,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 
-permissions:
-  contents: write
-  pull-requests: write
+# The one step uses RELEASE_TOKEN, so the default token needs nothing.
+permissions: {}
 
 concurrency:
   group: release-auto-merge-${{ github.event.pull_request.number }}
@@ -35,7 +34,12 @@ jobs:
     # and re-labels it "autorelease: tagged" once merged — checking the
     # label rather than the actor, since the PR is opened by whichever
     # identity runs googleapis/release-please-action, not a bot account.
-    if: "contains(github.event.pull_request.labels.*.name, 'autorelease: pending')"
+    # The label alone would let any labelled pull request be merged with
+    # RELEASE_TOKEN, so the head must also be release-please's own branch.
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'autorelease: pending')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
