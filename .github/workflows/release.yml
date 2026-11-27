@@ -35,9 +35,9 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
       # release-please doesn't push when the release notes are unchanged, and
-      # main requires up-to-date branches, so its pull request would wait
-      # forever behind a chore:, ci: or docs: commit. RELEASE_TOKEN again, so
-      # the checks run on the new head.
+      # main requires up-to-date branches, so its pull request can sit behind
+      # a chore:, ci: or docs: commit. RELEASE_TOKEN again, so the checks run
+      # on the new head.
       - name: Bring the open release pull request up to date
         if: steps.release.outputs.release_created != 'true'
         env:
