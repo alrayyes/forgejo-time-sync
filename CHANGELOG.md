@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.15](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.14...v1.4.15) (2026-11-27)
+
+
+### Bug Fixes
+
+* **deps:** bump github.com/testcontainers/testcontainers-go ([#112](https://github.com/alrayyes/forgejo-time-sync/issues/112)) ([599e8a5](https://github.com/alrayyes/forgejo-time-sync/commit/599e8a51c1c293bc3b650c362c30e75e54b44ef3))
+* **deps:** bump go.opentelemetry.io/otel/sdk from 1.45.0 to 1.47.0 ([#116](https://github.com/alrayyes/forgejo-time-sync/issues/116)) ([2e86476](https://github.com/alrayyes/forgejo-time-sync/commit/2e86476385450b5bdb2d170d39f352770e71cc22))
+* **deps:** bump go.opentelemetry.io/otel/trace from 1.45.0 to 1.47.0 ([#115](https://github.com/alrayyes/forgejo-time-sync/issues/115)) ([a83664b](https://github.com/alrayyes/forgejo-time-sync/commit/a83664b99bfbe1ba0508265e1edd845ef81d9250))
+* **deps:** bump golang from `2920bb1` to `e519d3b` ([#113](https://github.com/alrayyes/forgejo-time-sync/issues/113)) ([4332546](https://github.com/alrayyes/forgejo-time-sync/commit/4332546c311cfba465092ac08a58812bc4e9c364))
+* **deps:** bump golang from `5e8afd4` to `205c763` ([#120](https://github.com/alrayyes/forgejo-time-sync/issues/120)) ([2ec3554](https://github.com/alrayyes/forgejo-time-sync/commit/2ec355456e4e2b2f31bc9d87b37aedaed56ff7ea))
+* **deps:** bump golang from `f20d83a` to `2920bb1` ([#108](https://github.com/alrayyes/forgejo-time-sync/issues/108)) ([675cfac](https://github.com/alrayyes/forgejo-time-sync/commit/675cfacc14772a137ff40f41c5936215e3223e93))
+* **deps:** bump golang from 1.27.2 to 1.27.3 ([#105](https://github.com/alrayyes/forgejo-time-sync/issues/105)) ([89d0123](https://github.com/alrayyes/forgejo-time-sync/commit/89d01234cab1cb867e526d3cb6306e914aaa9854))
+* **deps:** bump golang from 1.27.3 to 1.27.4 ([#118](https://github.com/alrayyes/forgejo-time-sync/issues/118)) ([90295e6](https://github.com/alrayyes/forgejo-time-sync/commit/90295e6e37a0777a687a93a2584749a01de42ee7))
+
 ## [1.4.14](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.13...v1.4.14) (2026-10-19)
 
 
