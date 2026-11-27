@@ -90,14 +90,19 @@ pushed straight to `main`.
 
 ## Releases
 
-[semantic-release](https://semantic-release.gitbook.io/) decides the
-version from the Conventional Commits on `main`: `feat:` cuts a minor,
-`fix:` a patch, a `BREAKING CHANGE:` footer a major, and a push of only
-`docs:`/`chore:` releases nothing. Nobody picks a version by hand.
+[release-please](https://github.com/googleapis/release-please) decides the
+version from the Conventional Commits on `main`: `feat:` cuts a minor, `fix:` a
+patch, a `BREAKING CHANGE:` footer a major, and a push of only `docs:`/`chore:`
+releases nothing. Nobody picks a version by hand.
 
-Merging to `main` is what triggers it — see `.github/workflows/release.yml`.
-It tags the release, writes `CHANGELOG.md`, creates the GitHub release, and
-on a successful release builds and pushes the image to
-`ghcr.io/alrayyes/forgejo-time-sync`, tagged with both the version and
-`latest`. There's no goreleaser here since there's no binary artifact for
-it to build — the image is the release artifact.
+Each push to `main` runs `.github/workflows/release.yml`, which keeps a release
+pull request open with the next version and the `CHANGELOG.md` entry. That pull
+request auto-merges once the required checks pass
+(`release-auto-merge.yml`). The merge tags `vX.Y.Z`, creates the GitHub release,
+and builds and pushes the image to `ghcr.io/alrayyes/forgejo-time-sync`, tagged
+with both the version and `latest`. There's no goreleaser here since there's no
+binary artifact for it to build. The image is the release artifact.
+
+Both workflows use the `RELEASE_TOKEN` secret, a personal access token with
+read and write on contents and pull requests. The current version is in
+`.release-please-manifest.json`.

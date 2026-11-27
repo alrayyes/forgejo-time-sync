@@ -1,3 +1,5 @@
+# Changelog
+
 ## [1.4.14](https://github.com/alrayyes/forgejo-time-sync/compare/v1.4.13...v1.4.14) (2026-10-19)
 
 

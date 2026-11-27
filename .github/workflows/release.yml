@@ -1,3 +1,7 @@
+# release-please decides the version. It keeps a release pull request open
+# with the next version and the changelog entry, and merging that pull request
+# tags vX.Y.Z and writes the GitHub release. The same run then publishes the
+# image, which is the release artifact.
 name: Release
 
 on:
@@ -5,46 +9,39 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  packages: write
+  contents: read
+
+# Never two releases at once, and never cancel one halfway: a killed run can
+# leave a tag with no image against it.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  release-please:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
-      published: ${{ steps.release.outputs.new_release_published }}
-      version: ${{ steps.release.outputs.new_release_version }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
     steps:
-      # main is protected and GITHUB_TOKEN pushes as github-actions[bot],
-      # which has no bypass on a personal (non-org) repo — only the repo
-      # admin does. RELEASE_TOKEN is a fine-grained PAT scoped to this repo
-      # (Contents: read/write) belonging to the repo owner, so this push
-      # clears the required-pull-request check the same way a manual push
-      # from that account would.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.RELEASE_TOKEN }}
+      # RELEASE_TOKEN, not GITHUB_TOKEN: a pull request opened with the latter
+      # gets no checks, so branch protection would never let it merge.
       - id: release
-        uses: cycjimmy/semantic-release-action@ad51787758d9654d5a75150a89a6fa9b3ccef95e # v8.1.4
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          semantic_version: "25.0.9"
-          extra_plugins: |
-            @semantic-release/changelog@7.0.0
-            @semantic-release/git@11.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
-  # A tag release-please/semantic-release pushes with the default
-  # GITHUB_TOKEN starts no further workflow, so this stays a job in the
-  # same run rather than its own on-tag workflow — that would silently
-  # never fire.
+  # A job in this run rather than an on-tag workflow, so it doesn't depend on
+  # which token pushed the tag.
   publish-image:
-    needs: release
-    if: needs.release.outputs.published == 'true'
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -53,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: v${{ needs.release.outputs.version }}
+          ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
@@ -61,14 +58,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           image=ghcr.io/${{ github.repository }}
-          version=${{ needs.release.outputs.version }}
+          version=${{ needs.release-please.outputs.version }}
           docker build -t "$image:$version" -t "$image:latest" .
           docker push "$image:$version"
           docker push "$image:latest"
       - id: digest
         run: |
           image=ghcr.io/${{ github.repository }}
-          version=${{ needs.release.outputs.version }}
+          version=${{ needs.release-please.outputs.version }}
           digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:$version" | cut -d'@' -f2)
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       # SLSA Build L2: a signed attestation tying the image to the workflow
