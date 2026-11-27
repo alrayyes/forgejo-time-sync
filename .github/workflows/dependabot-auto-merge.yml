@@ -1,25 +1,35 @@
 # Dependabot has no built-in `automerge: true` the way Renovate does. This is
-# that mechanism for a GitHub-primary repo: gate on the actor, wait for the
-# same checks every other pull request waits for, then arm auto-merge the
-# same way a human would from the UI.
+# that mechanism for a GitHub-primary repo: gate on the pull request's author,
+# then arm auto-merge, which waits for the same checks as any other pull
+# request.
 #
-# pull_request, not pull_request_target: Dependabot's pull requests come
-# from a branch on this repo, never a fork, so there's no untrusted checkout
-# to guard against. GitHub grants the default GITHUB_TOKEN elevated
-# permissions for pull_request events actor'd by dependabot[bot]
-# specifically — pull_request_target would trade that away for nothing.
+# RELEASE_TOKEN, not GITHUB_TOKEN: a GITHUB_TOKEN merge starts no further
+# workflow, so neither CI nor Release would run on main and the bump would
+# never ship.
+#
+# pull_request_target, not pull_request: a pull_request run opened by
+# Dependabot can't read Actions secrets. Nothing here checks out or runs the
+# pull request's code, and the head must be a branch of this repo. Don't copy
+# the token into the Dependabot secret store instead; rotation would miss it.
 name: dependabot-auto-merge
 
-on: pull_request
+on: pull_request_target
 
-permissions:
-  contents: write
-  pull-requests: write
+# The one step uses RELEASE_TOKEN, so the default token needs nothing.
+permissions: {}
+
+# Keyed on the number: github.ref is the base branch under this trigger.
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       # Every update type, majors included: the same required checks gate
       # them as any other pull request, so a red major simply never merges.
@@ -27,4 +37,4 @@ jobs:
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

@@ -101,8 +101,11 @@ request auto-merges once the required checks pass
 (`release-auto-merge.yml`). The merge tags `vX.Y.Z`, creates the GitHub release,
 and builds and pushes the image to `ghcr.io/alrayyes/forgejo-time-sync`, tagged
 with both the version and `latest`. There's no goreleaser here since there's no
-binary artifact for it to build. The image is the release artifact.
+binary artifact for it to build. The image is the release artifact. The current
+version is in `.release-please-manifest.json`.
 
-Both workflows use the `RELEASE_TOKEN` secret, a personal access token with
-read and write on contents and pull requests. The current version is in
-`.release-please-manifest.json`.
+Dependabot pull requests auto-merge the same way
+(`dependabot-auto-merge.yml`), so a merged bump reaches the release workflow.
+
+All three workflows use the `RELEASE_TOKEN` secret, a personal access token
+that needs read and write on contents, pull requests and workflows.
