@@ -74,8 +74,8 @@ renaming the project in Toggl's UI later doesn't get fought or duplicated.
 
 ## Installation
 
-Pull the published image — every merge to `main` releases a new version to
-`ghcr.io`, tagged with both the version and `latest`:
+Pull the published image. Every release is pushed to `ghcr.io`, tagged with
+both the version and `latest`:
 
 ```sh
 mkdir forgejo-time-sync && cd forgejo-time-sync
